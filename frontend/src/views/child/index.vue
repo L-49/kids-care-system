@@ -1,5 +1,10 @@
 <template>
-  <CrudPage ref="crud" :config="config" :options="{ clazzList }" />
+  <CrudPage ref="crud" :config="config" :options="{ clazzList }">
+    <template #col-missingFields="{ row }">
+      <el-tag v-if="row.missingFields" type="warning" size="small">{{ row.missingFields }}</el-tag>
+      <el-tag v-else type="success" size="small">已完整</el-tag>
+    </template>
+  </CrudPage>
 </template>
 
 <script setup>
@@ -25,6 +30,13 @@ const config = {
         { label: '在园', value: 1 },
         { label: '离园', value: 0 }
       ]
+    },
+    {
+      field: 'incompleteOnly',
+      label: '档案完整度',
+      type: 'select',
+      placeholder: '全部',
+      options: [{ label: '仅看待补全', value: true }]
     }
   ],
   columns: [
@@ -34,8 +46,10 @@ const config = {
     { prop: 'clazzName', label: '所在班级', width: 100 },
     { prop: 'guardianName', label: '家长姓名', width: 100 },
     { prop: 'guardianPhone', label: '家长电话', width: 130 },
-    { prop: 'allergy', label: '过敏史', minWidth: 120 },
+    { prop: 'allergy', label: '过敏史', minWidth: 110 },
     { prop: 'enrollDate', label: '入园日期', width: 110 },
+    { prop: 'completeness', label: '完整度', width: 150, progress: true },
+    { prop: 'missingFields', label: '待补全项', minWidth: 150 },
     {
       prop: 'status',
       label: '状态',

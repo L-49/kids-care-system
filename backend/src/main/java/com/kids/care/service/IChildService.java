@@ -11,8 +11,9 @@ import java.util.List;
  */
 public interface IChildService extends IService<Child> {
 
-    /** 分页查询 */
-    IPage<Child> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId, Integer status);
+    /** 分页查询（incompleteOnly=true 时只返回完整度未满 100 的档案） */
+    IPage<Child> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId,
+                           Integer status, Boolean incompleteOnly);
 
     /** 全部列表（用于下拉框） */
     List<Child> listAll();

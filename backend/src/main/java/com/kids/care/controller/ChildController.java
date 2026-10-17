@@ -20,14 +20,15 @@ public class ChildController {
 
     private final IChildService childService;
 
-    /** 分页查询 */
+    /** 分页查询（incompleteOnly=true 只看待补全档案） */
     @GetMapping("/page")
     public Result<List<Child>> page(@RequestParam(defaultValue = "1") int pageNum,
                                          @RequestParam(defaultValue = "10") int pageSize,
                                          @RequestParam(required = false) String keyword,
                                          @RequestParam(required = false) Long clazzId,
-                                         @RequestParam(required = false) Integer status) {
-        IPage<Child> page = childService.pageQuery(pageNum, pageSize, keyword, clazzId, status);
+                                         @RequestParam(required = false) Integer status,
+                                         @RequestParam(required = false) Boolean incompleteOnly) {
+        IPage<Child> page = childService.pageQuery(pageNum, pageSize, keyword, clazzId, status, incompleteOnly);
         return Result.page(page.getRecords(), page.getTotal());
     }
 

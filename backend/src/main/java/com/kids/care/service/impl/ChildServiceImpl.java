@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.kids.care.common.BizException;
+import com.kids.care.common.ChildCompleteness;
 import com.kids.care.entity.Child;
 import com.kids.care.mapper.ChildMapper;
 import com.kids.care.service.IChildService;
@@ -29,7 +30,8 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
 
     private final ClazzMapper clazzMapper;
     @Override
-    public IPage<Child> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId, Integer status) {
+    public IPage<Child> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId,
+                                  Integer status, Boolean incompleteOnly) {
         LambdaQueryWrapper<Child> qw = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
             qw.and(w -> w.like(Child::getName, keyword)
@@ -42,9 +44,14 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
         if (status != null) {
             qw.eq(Child::getStatus, status);
         }
+        if (Boolean.TRUE.equals(incompleteOnly)) {
+            // 用 SQL 侧算完整度，保证分页 total 与筛选结果一致（在 Java 里过滤会导致条数错乱）
+            qw.apply(ChildCompleteness.incompleteSql());
+        }
         qw.orderByAsc(Child::getClazzId).orderByAsc(Child::getId);
         IPage<Child> page = page(new Page<>(pageNum, pageSize), qw);
         fillClazzName(page.getRecords());
+        fillCompleteness(page.getRecords());
         return page;
     }
 
@@ -67,7 +74,8 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
         return list;
     }
 
-    private void fillClazzName(List<Child> list) {        if (list == null || list.isEmpty()) {
+    private void fillClazzName(List<Child> list) {
+        if (list == null || list.isEmpty()) {
             return;
         }
         List<Long> ids = list.stream().map(Child::getClazzId).filter(Objects::nonNull).distinct().toList();
@@ -77,6 +85,17 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
         Map<Long, String> names = clazzMapper.selectBatchIds(ids).stream()
                 .collect(Collectors.toMap(Clazz::getId, Clazz::getName));
         list.forEach(c -> c.setClazzName(names.get(c.getClazzId())));
+    }
+
+    /** 填充档案完整度（实时计算，不落库） */
+    private void fillCompleteness(List<Child> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        for (Child c : list) {
+            c.setCompleteness(ChildCompleteness.score(c));
+            c.setMissingFields(ChildCompleteness.missingLabels(c));
+        }
     }
 
     @Override

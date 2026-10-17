@@ -77,4 +77,12 @@ public class Child {
     /** 班级名称 */
     @TableField(exist = false)
     private String clazzName;
+
+    /** 档案完整度（0~100，查询时实时计算，不落库） */
+    @TableField(exist = false)
+    private Integer completeness;
+
+    /** 待补全的字段说明，如「家长电话、过敏史」；为空表示档案完整 */
+    @TableField(exist = false)
+    private String missingFields;
 }

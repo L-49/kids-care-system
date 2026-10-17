@@ -72,11 +72,20 @@
         show-overflow-tooltip
       >
         <template #default="{ row }">
-          <el-tag v-if="c.mapTag" :type="tagType(c, row[c.prop])" disable-transitions>
-            {{ formatCell(c, row[c.prop]) }}
-          </el-tag>
-          <span v-else-if="c.money" class="money">¥{{ Number(row[c.prop] || 0).toFixed(2) }}</span>
-          <span v-else>{{ formatCell(c, row[c.prop]) }}</span>
+          <!-- 具名插槽 col-<prop> 供页面自定义某一列的渲染，未提供时走默认逻辑 -->
+          <slot :name="`col-${c.prop}`" :row="row">
+            <el-tag v-if="c.mapTag" :type="tagType(c, row[c.prop])" disable-transitions>
+              {{ formatCell(c, row[c.prop]) }}
+            </el-tag>
+            <span v-else-if="c.money" class="money">¥{{ Number(row[c.prop] || 0).toFixed(2) }}</span>
+            <el-progress
+              v-else-if="c.progress"
+              :percentage="Number(row[c.prop] || 0)"
+              :stroke-width="12"
+              :color="progressColor(row[c.prop])"
+            />
+            <span v-else>{{ formatCell(c, row[c.prop]) }}</span>
+          </slot>
         </template>
       </el-table-column>
       <el-table-column label="操作" :width="actionWidth" fixed="right" align="center">
@@ -252,6 +261,14 @@ function formatCell(col, val) {
 function tagType(col, val) {
   if (typeof col.mapTag === 'function') return col.mapTag(val)
   return 'info'
+}
+
+/** 完整度进度条配色：≥90 绿、60~89 黄、<60 红 */
+function progressColor(val) {
+  const n = Number(val || 0)
+  if (n >= 90) return '#67c23a'
+  if (n >= 60) return '#e6a23c'
+  return '#f56c6c'
 }
 
 function visibleActions(row) {
