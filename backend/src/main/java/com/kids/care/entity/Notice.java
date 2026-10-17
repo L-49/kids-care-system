@@ -21,6 +21,15 @@ import java.time.LocalDateTime;
 @TableName("notice")
 public class Notice {
 
+    /** 状态：草稿 */
+    public static final int STATUS_DRAFT = 0;
+    /** 状态：定时待发（到点由定时任务自动发布） */
+    public static final int STATUS_SCHEDULED = 1;
+    /** 状态：已发布（唯一对外可见的状态） */
+    public static final int STATUS_PUBLISHED = 2;
+    /** 状态：已撤回（保留记录，不再对外展示） */
+    public static final int STATUS_REVOKED = 3;
+
     @TableId(type = IdType.AUTO)
     private Long id;
 
@@ -40,7 +49,10 @@ public class Notice {
     /** 发布人 */
     private String publisher;
 
-    /** 发布时间 */
+    /** 公告状态：0草稿 1定时待发 2已发布 3已撤回 */
+    private Integer status;
+
+    /** 发布时间：定时发布时表示计划发布时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime publishTime;
 

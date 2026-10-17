@@ -172,6 +172,14 @@
                 placeholder="选择月份"
                 style="width: 100%"
               />
+              <el-date-picker
+                v-else-if="f.type === 'datetime'"
+                v-model="form[f.field]"
+                type="datetime"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                placeholder="选择日期时间"
+                style="width: 100%"
+              />
               <el-radio-group v-else-if="f.type === 'radio'" v-model="form[f.field]">
                 <el-radio v-for="o in resolveOptions(f.options)" :key="o.value" :value="o.value">
                   {{ o.label }}

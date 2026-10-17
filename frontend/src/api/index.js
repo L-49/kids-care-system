@@ -41,6 +41,9 @@ export const approveLeave = (id, pass, approver) =>
   request.put(`/leave/approve/${id}`, null, { params: { pass, approver } })
 export const cleanLog = () => request.delete('/log/clean')
 export const allergyChildren = () => request.get('/child/allergy')
+// 公告状态机：立即发布 / 撤回
+export const publishNotice = (id) => request.post(`/notice/${id}/publish`)
+export const revokeNotice = (id) => request.post(`/notice/${id}/revoke`)
 
 // ---------------- 看板与统计报表
 export const statApi = {

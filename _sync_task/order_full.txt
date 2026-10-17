@@ -1,0 +1,379 @@
+﻿######################### source.docx
+P[2] Normal: 课 程 设 计 报 告
+P[6] Normal: 课程设计名称    企业实践（Java Web 方向）
+P[7] Normal: 专        业    计算机科学与技术
+P[8] Normal: 班        级    23计科02班
+P[9] Normal: 学        号    ________
+P[10] Normal: 姓        名    ________
+P[11] Normal: 指导教师    张四伟
+P[12] Normal: 成        绩
+P[17] Normal: 2026年10月19日
+P[19] Normal: 目    录
+P[20] Normal: 目录将在打开文档时自动生成（若未生成，按 Ctrl+A 后 F9 更新域）
+P[22] Heading 1: 一、课程设计目的
+P[23] Normal: 本次实践以一个可运行的幼儿园（托育机构）管理系统为载体，把 Vue 3 前端开发、Spring Boot 后端开发和关系
+P[24] Normal: 具体来说，实践重点包括以下三个方面。
+P[25] Normal: 第一，建立前后端分离的开发方式。前端使用 Vue 3 与 Element Plus 负责页面展示与交互，后端使用 Spr
+P[26] Normal: 第二，处理跨表数据的一致性。幼儿属于班级，考勤与收费都引用幼儿编号，食谱需要标注过敏幼儿，食材库存需要与食谱联动；这些关
+P[27] Normal: 第三，形成按模块分工、按验收案例联调、用证据说明成果的工作方法。开发时把系统拆成七个模块，每人负责一到两个模块，先共同约
+P[28] Normal: 通过以上过程，实践不仅训练了页面开发、接口编程和数据库设计三项能力，也训练了阅读既有代码、在他人代码上继续开发的工程习惯
+P[29] Heading 1: 二、课程设计内容
+P[30] Heading 2: 2.1 需求分析与系统架构
+P[31] Normal: 系统面向幼儿园的日常管理，核心需求可以归纳为“一套档案、两条主线、一个看板”。一套档案指幼儿与教职工两类人员档案，以及它
+P[32] Normal: 系统在 sys_user 表中保存角色字段（admin / teacher / parent），登录成功后随用户信息一并
+P[33] Normal: 以一次新增考勤为例，调用路径为：考勤页面提交幼儿编号与考勤状态 → 前端 request 封装自动附加 Authoriz
+P[34] Normal: 工程按职责划分：backend 保存控制器（controller）、业务服务（service）、数据访问（mapper）
+P[35] Heading 2: 2.2 模块协作与验收方法
+P[36] Normal: 模块协作以接口契约为边界。开发前，前后端先共同约定接口路径、请求方法、请求字段与返回结构：列表接口统一返回数组加 tot
+P[37] Normal: 个人模块的验收至少覆盖一条正常流程和一条失败流程。正常流程验证功能可用，失败流程验证边界处理：例如请假审批，正常流程是提
+P[38] Normal: 跨模块流程用来检查数据是否同步变化。例如请假审批通过后，对应日期的考勤记录应记为“请假”，历史出勤率随之下降；幼儿档案里
+P[39] Normal: 按分工，每个人负责两个模块，并在汇报时说明：自己模块的接口清单、涉及的数据表、关键代码片段、以及至少一条跨模块联调案例。
+P[40] Heading 2: 2.3 数据库设计
+P[41] Normal: 数据库名为 kids_care，共 13 张业务表，按职责可分为三组：用户与系统类（sys_user、sys_dict、
+T[42] TABLE 14x4: 表名
+P[44] Normal: 表 2-1 数据库表结构说明
+P[45] Normal: 表间关系可以概括为：班级与教职工是一对多（一名教师可担任一个班的班主任），班级与幼儿是一对多，幼儿与考勤、请假、收费都是
+P[46] Normal: 设计上有两点取舍值得说明。其一是冗余字段：attendance 表除了幼儿编号，还额外保存班级编号。按范式本可以不存，但
+P[47] Normal: 上述两个设计在实现时必须由服务层统一维护：冗余的班级编号由 AttendanceServiceImpl 在保存前根据幼儿
+P[48] Heading 1: 三、幼儿园机构管理系统架构设计
+P[49] IMG Normal: 
+P[50] Normal: 图 3-1 系统总体架构
+P[51] Normal: 系统采用前后端分离的四层结构。表现层是浏览器中的 Vue 3 单页应用，由 Element Plus 提供表格、表单与弹
+P[52] Normal: 公共组件横跨各层，包括统一响应 Result、业务异常 BizException、全局异常处理 GlobalExcept
+P[53] Normal: 各个模块之间的关系：
+P[54] Normal: 登录认证 → 个人中心（总入口）
+P[55] Normal: ├─ 幼儿档案 ←→ 班级管理（幼儿归属班级）
+P[56] Normal: ├─ 考勤 → 请假审批（请假结果回写考勤）
+P[57] Normal: ├─ 收费 → 统计看板（缴费结果进入报表）
+P[58] Normal: ├─ 食谱管理 ←→ 食材库存（食谱消耗库存，库存不足预警）
+P[59] Normal: ├─ 课程活动（引用班级与教师）
+P[60] Normal: └─ 通知公告（面向教师与家长）
+P[61] Normal: 管理员：系统管理（字典 / 日志 / 备份）+ 统计看板（全园数据）
+P[62] Normal: 技术选型如表 3-1 所示。前端选择 Vue 3 组合式 API，是因为页面多为“列表＋表单”结构，组合式写法便于把查询
+T[63] TABLE 9x3: 层次
+P[65] Normal: 表 3-1 技术选型
+P[66] Heading 1: 四、核心技术实践
+P[67] Heading 2: 4.1 前后端分离与 Vue3 组件化页面
+P[68] Normal: 前端共 16 个页面，其中 10 个是“查询条件＋表格＋分页＋新增/编辑弹窗”的同构页面。如果每个页面都从零写模板，不仅
+P[69] Normal: 以幼儿档案页为例，整页只有两个文件：index.vue 中写一份 config，模板部分仅一行 <CrudPage :c
+P[70] Normal: 注：以下为接口层条件构造的通用写法，各模块的服务实现都遵循同一模式——先按条件拼 LambdaQueryWrapper，
+T[71] TABLE 1x1: @Override
+public IPage<Child> 
+P[73] Normal: 关键代码：幼儿档案页的配置声明（frontend/src/views/child/index.vue 节选）
+T[74] TABLE 1x1: const config = {
+  title: '幼儿档
+P[76] Heading 2: 4.2 REST 接口与统一响应
+P[77] Normal: 后端所有接口挂在 /api 前缀下，用 HTTP 方法区分语义：GET 查询、POST 新增与动作、PUT 修改、DEL
+P[78] Normal: 异常处理同样统一：业务校验失败抛 BizException，由 GlobalExceptionHandler 捕获后转成
+P[79] Normal: 关键代码：统一响应对象（common/Result.java）
+T[80] TABLE 1x1: @Data
+public class Result<T> {
+P[82] Heading 2: 4.3 MyBatis-Plus 与逻辑删除
+P[83] Normal: 持久层使用 MyBatis-Plus 的 BaseMapper 与 ServiceImpl，单表增删改查无需编写 SQL
+P[84] Normal: 删除采用逻辑删除：全局配置指定 deleted 字段、1 表示已删除、0 表示未删除，此后所有查询自动附加 delete
+P[85] Normal: 关键代码：条件构造与分页（以幼儿档案为例，service/impl/ChildServiceImpl.java 节选）
+T[86] TABLE 1x1: @Override
+public IPage<Child> 
+P[88] Heading 2: 4.4 登录令牌与请求拦截
+P[89] Normal: 登录成功后，服务端用 UUID 生成令牌并存入 TokenStore（ConcurrentHashMap），返回给前端保
+P[90] Normal: 前端响应拦截器负责两件事：业务码非 200 时弹出提示并中断后续处理；HTTP 状态为 401 时清除本地令牌并跳回登录
+P[91] Normal: 关键代码：前端请求与响应拦截器（frontend/src/api/request.js）
+T[92] TABLE 1x1: // 请求拦截：自动携带令牌
+request.interce
+P[94] Normal: 关键代码：后端登录拦截器（common/AuthInterceptor.java）
+T[95] TABLE 1x1: @Component
+public class AuthIn
+P[97] Heading 1: 五、详细设计
+P[98] Heading 2: 5.1 幼儿档案管理模块
+P[99] Normal: 幼儿档案是整个系统的数据源头：考勤、请假、收费三张流水表都通过 child_id 指向它，班级归属也在这里确定。因此这一
+P[100] Normal: 分页查询支持三类条件：关键字、班级、状态。关键字做的是“三选一命中”，即姓名、家长姓名、家长电话任意一个模糊匹配即可，因
+P[101] Normal: 班级名称的补全是这一模块的关键细节。如果对每条记录单独查一次班级表，一页 10 条就是 10 次查询（典型的 N+1）；
+P[102] Normal: 过敏史字段是跨模块的：食谱页面会读取“有过敏史的幼儿”，在当天食谱上标注需要注意的孩子。因此这一字段虽然允许为空，但录入
+P[103] IMG Normal: 
+P[104] IMG Normal: 
+P[105] Normal: 图 5-1-1 幼儿档案列表与编辑弹窗
+P[106] Normal: 本模块对外提供的接口如下表所示。
+T[107] TABLE 7x3: 接口
+P[109] Normal: 表 5-1 接口清单
+P[110] Normal: 关键代码：分页查询与班级名称批量补全（service/impl/ChildServiceImpl.java 节选）
+T[111] TABLE 1x1: private void fillClazzName(Lis
+P[113] Normal: 涉及数据表：child（主表）、clazz（补全班级名称）。删除为逻辑删除，已产生的考勤与收费记录不受影响。
+P[114] Heading 2: 5.2 通知公告模块
+P[115] Normal: 通知公告面向教师与家长，承担“园所—家庭”的信息传递：放假安排、体检通知、活动报名、食谱调整等都在这里发布。功能本身不复
+P[116] Normal: 公告的发布时间由服务端兜底：如果提交时没有指定发布时间，保存前自动取当前时间。这样前端就不必为了“立即发布”专门传一个时
+P[117] Normal: 列表按发布时间倒序、同一时间按主键倒序，保证最新公告永远在最上面；首页看板直接复用 notice 表的计数作为“公告数量
+P[118] Normal: 类型字段（通知 / 活动 / 食谱 / 放假）在页面上以不同颜色的标签展示，取值来自数据字典，新增类型只需在字典里加一项
+P[119] IMG Normal: 
+P[120] IMG Normal: 
+P[121] Normal: 图 5-2-1 通知公告列表与发布弹窗
+P[122] Normal: 本模块对外提供的接口如下表所示。
+T[123] TABLE 6x3: 接口
+P[125] Normal: 表 5-2 接口清单
+P[126] Normal: 关键代码：公告查询与发布时间兜底（service/impl/NoticeServiceImpl.java 节选）
+T[127] TABLE 1x1: @Override
+public IPage<Notice>
+P[129] Normal: 涉及数据表：notice（标题、类型、正文、发布时间）。类型取值来自 sys_dict，不在代码中硬编码。
+P[130] Heading 1: 六、运行及调试结果
+P[131] Heading 2: 6.1 接口约定与失败反馈
+P[132] Normal: 接口统一使用 /api 前缀，除登录接口外都需要携带令牌。列表返回数组加 total，写入返回 Result，业务失败返
+T[133] TABLE 7x3: 场景
+P[135] Normal: 表 6-1 接口约定与失败反馈
+P[136] Heading 2: 6.2 系统测试与验收结果
+P[137] Normal: 按模块编写 12 条验收用例，覆盖登录、权限拦截、档案增删改查、考勤录入、请假审批、缴费登记、库存预警与统计报表，每条用
+T[138] TABLE 13x4: 编号
+P[140] Normal: 表 6-2 系统验收用例与结果
+P[141] Normal: 除功能用例外，还做了两项环境相关检查：一是更换浏览器并清空 localStorage 后重新登录，确认令牌失效时能正确回
+P[142] Heading 2: 6.3 运行界面与前后端联调
+P[143] Normal: 启动顺序为：先启动 MySQL 并确认 kids_care 库已导入，再启动后端（9090），最后启动前端（5173），
+P[144] Normal: 【此处插入运行截图】图 6-1 系统登录页与首页看板
+P[145] Heading 1: 七、收获及体会
+P[146] Normal: 我负责幼儿档案与通知公告。档案模块让我第一次真正理解“数据源头”这四个字的重量：我在录入时少填一个班级，后面考勤、收费、
+P[147] Normal: N+1 查询是我这次收获最大的技术点。最初我确实是在循环里逐条查班级名，十个孩子十次查询，本地感觉不出来，直到把演示数据
+P[148] Normal: 条件构造器里的 and/or 优先级也踩过坑。加上 and 包裹之后 SQL 才正确，这件事让我意识到：写得“能跑”和写
+P[149] Normal: 分工协作上，我和负责班级模块的同学约定：班级删除时不做级联，而是由幼儿档案保留历史班级编号。这个约定写进了接口说明，避免
+P[150] Heading 1: 参考文献
+P[151] Normal: [1] Vue.js 官方文档（组合式 API）[EB/OL]. https://cn.vuejs.org/guide/
+P[152] Normal: [2] Element Plus 组件库文档 [EB/OL]. https://element-plus.org/zh-
+P[153] Normal: [3] Spring Boot Reference Documentation [EB/OL]. https://doc
+P[154] Normal: [4] MyBatis-Plus 官方文档（条件构造器与逻辑删除）[EB/OL]. https://baomidou.c
+P[155] Normal: [5] Vite 官方文档（开发服务器与代理）[EB/OL]. https://cn.vitejs.dev/.
+P[156] Normal: [6] Silberschatz A., Korth H. F., Sudarshan S. Database Syst
+P[157] Normal: [7] 周志明. 深入理解 Java 虚拟机（第 3 版）[M]. 北京: 机械工业出版社, 2019.
+P[158] Heading 1: 八、附录：源代码
+P[159] Heading 3: 附录1：幼儿档案服务实现（ChildServiceImpl.java）
+P[160] Normal: 来源：backend/src/main/java/com/kids/care/service/impl/ChildSer
+T[161] TABLE 1x1: private void fillClazzName(Lis
+P[163] Heading 3: 附录2：通知公告服务实现（NoticeServiceImpl.java）
+P[164] Normal: 来源：backend/src/main/java/com/kids/care/service/impl/NoticeSe
+T[165] TABLE 1x1: @Override
+public IPage<Notice>
+P[168] Normal: 学    号：
+P[169] Normal: 姓    名：
+P[170] Normal: 课程报告评分：
+T[172] TABLE 7x3: 评分项目
+P[174] Normal: 评语：
+
+######################### template.docx
+P[4] Normal: 课 程 设 计 报 告
+P[6] Normal: 课程设计名称   幼儿园机构管理系统
+P[8] Normal: 专    业       计算机科学与技术
+P[10] Normal: 班    级         23计科01班
+P[12] Normal: 学    号          23030127
+P[14] Normal: 姓    名           李思佳
+P[16] Normal: 指导教师           张四伟
+P[18] Normal: 成    绩
+P[22] Normal: 2026年10月19日
+P[24] toc 2: 目   录
+P[26] toc 2: 一、课程设计目的	1
+P[27] toc 2: 二、课程设计内容	2
+P[28] toc 2: 2.1 需求分析与系统架构	2
+P[29] toc 2: 2.2 模块协作与验收方法	2
+P[30] toc 2: 2.3 数据库设计	3
+P[31] toc 2: 三、 青禾书馆图书管理系统项目架构设计	5
+P[32] toc 2: 四、核心技术实践	6
+P[33] toc 2: 4.1.Android 原生页面与异步请求	6
+P[34] toc 2: 4.2 REST 接口与身份认证	7
+P[35] toc 2: 4.3 关系数据库与事务控制	7
+P[36] toc 2: 4.4 登录状态与页面生命周期	8
+P[37] toc 2: 五、详细设计	9
+P[38] toc 2: 5.1登录注册功能模块	9
+P[39] toc 2: 5.2 图书收藏功能模块	11
+P[40] toc 2: 5.3 读者书评功能模块	12
+P[41] toc 2: 六、运行及调试结果	13
+P[42] toc 2: 6.1 接口约定与失败反馈	13
+P[43] toc 2: 6.2 系统测试与验收结果	14
+P[44] toc 2: 6.3 运行界面与前后端联调	14
+P[45] toc 2: 七、收获及体会	15
+P[46] toc 2: 八、 参考文献	17
+P[47] toc 2: 九、附录：源代码	18
+P[50] Heading 1: 一、课程设计目的
+P[51] Normal: 本次实践的核心目标，是把Android页面开发、Java编程和关系数据库三部分知识真正串联起来，形成一个可运行、可验证、
+P[52] Normal: 具体来说，实践重点包括以下三个方面。
+P[53] Normal: 第一，建立前后端分离的开发方式。移动端负责界面展示、用户交互和输入校验，后端负责业务处理、数据访问和接口返回。通过异步请
+P[54] Normal: 第二，处理库存、借阅、预约之间的一致性。库存数量、借阅记录和预约记录不是彼此独立的数据，而是相互影响的业务状态。例如，借
+P[55] Normal: 第三，形成按模块分工、按验收案例联调、按证据说明成果的工作方法。开发时把系统拆分为若干模块，明确每个模块的负责人、接口约
+P[56] Normal: 通过以上过程，实践不仅训练Android页面开发、Java后端编程和关系数据库设计的能力，还训练需求分析、接口设计、状态
+P[57] Heading 1: 二、课程设计内容
+P[58] Heading 2: 2.1 需求分析与系统架构
+P[59] Normal: 本系统采用基于角色的权限设计，设置 READER 与 ADMIN 两类角色。READER 面向普通读者，主要完成找书、借
+P[60] Normal: 以一次借阅操作为例，调用路径为：Android 图书详情页提交 book_id，ApiClient 携带登录令牌发起 P
+P[61] Normal: 工程按职责划分：android 保存移动端代码；backend 保存控制器、公共组件、事务服务和建表脚本；docs 保存
+P[62] Heading 2: 2.2 模块协作与验收方法
+P[63] Normal: 模块协作以接口契约为边界。在开发前，前后端先共同约定接口路径、HTTP 方法、请求字段、响应字段、权限角色以及错误响应格
+P[64] Normal: 个人模块的验收至少覆盖一条正常流程和一条失败流程。正常流程验证功能可用，失败流程验证异常处理、权限控制和数据一致性。例如
+P[65] Normal: 最后通过跨模块流程检查数据是否同步变化。以借阅为例：读者借书成功后，借阅记录应新增，可借库存应减少，若存在预约则预约状态
+P[66] Normal: 个人汇报需说明两个负责模块的代码、数据表和联调案例。每个模块应展示对应的 Android 页面类（Activity/Fr
+P[67] Heading 2: 2.3 数据库设计
+T[68] TABLE 10x3: 表名
+P[70] Normal: 读者与图书通过 loans 建立借阅关系，通过 reservations 建立预约关系，通过 favorites 和 r
+P[71] Normal: 库存编辑保持已借出数量不变，按“新可借册数＝新总册数－已借出册数”计算。新总册数不得小于已借数量。示例库首次启动初始化 
+P[72] Heading 1: 青禾书馆图书管理系统项目架构设计
+P[74] Normal: 图3-1系统架构图
+P[75] Normal: 各个模块之间的关系：
+P[76] Normal: 登录注册 → 个人中心（总入口）
+P[77] Normal: ├─ 图书管理 ←→ 分类管理（图书归属分类）
+P[78] Normal: ├─ 借阅 → 归还 / 续借（同一笔借阅的三个阶段）
+P[79] Normal: │         └→ 预约（无库存时的补充路径，续借让位于预约）
+P[80] Normal: ├─ 收藏 / 书评（围绕图书的阅读互动，书评需先借阅）
+P[81] Normal: └─ 公告 / 反馈（书馆与读者的双向沟通）
+P[82] Normal: 管理员：读者管理（账号管控）+ 统计看板（全馆数据）
+P[83] Heading 1: 四、核心技术实践
+P[84] Heading 2: 4.1.Android 原生页面与异步请求
+P[85] Normal: 客户端使用 Java 编写，以 MainActivity 统一提供布局组件和页面导航，各业务 Screen 类分别实现功
+T[87] TABLE 5x3: 技术点
+P[88] Normal: FavoriteScreen 请求 /favorites 后复用图书卡片渲染收藏列表，空数据时显示空态提示，核心代码如下
+P[90] Normal: 关键代码：Android 收藏列表渲染
+P[91] Normal: a.get("/favorites", o -> {
+P[92] Normal: JSONArray rows = (JSONArray) o;
+P[93] Normal: if (rows.length() == 0) a.empty(a.content, "收藏夹还是空的",
+P[94] Normal: "在图书详情中点击“加入收藏”，建立你的待读书单。");
+P[95] Normal: for (int i = 0; i < rows.length(); i++)
+P[96] Normal: BookScreen.bookCard(a, a.content, rows.optJSONObject(i), tru
+P[97] Normal: });
+P[98] Heading 2: 4.2 REST 接口与身份认证
+P[99] Normal: 接口使用 /api 前缀，注册和登录之外需要认证。客户端使用 HTTP 方法区分查询与写入，并传输 UTF-8 编码的 
+P[101] Normal: 关键代码
+P[102] Normal: @PostMapping("/login")
+public Object login(@RequestBody Map<
+P[103] Heading 2: 4.3 关系数据库与事务控制
+P[104] Normal: 数据库包含读者、分类、图书、借阅、预约、收藏、书评、公告和反馈九张业务表。后端使用 JdbcTemplate 执行参数化
+P[106] Normal: 关键代码：MERGE INTO 幂等写入（收藏 / 书评）
+P[107] Normal: db.update(
+  "MERGE INTO favorites(reader_id,book_id) KEY(re
+P[108] Heading 2: 4.4 登录状态与页面生命周期
+P[109] Normal: 登录状态指用户当前是否已登录、身份是谁、Token 是否有效以及拥有哪些权限。本实践采用基于 Token 的管理方式：登
+P[110] Normal: 页面生命周期指 Activity/Fragment 从创建到销毁的过程，包括 onCreate、onStart、onRe
+P[111] Normal: 二者结合：在 onCreate/onViewCreated 中初始化 ViewModel、订阅登录状态；在 onResu
+P[112] Normal: 这样可避免未登录仍展示数据、页面状态错乱、onResume 重复请求，以及异步回调更新已销毁页面导致的内存泄漏，从而兼顾
+P[118] Heading 1: 五、详细设计
+P[119] Heading 2: 5.1登录注册功能模块
+P[120] Normal: 注册校验用户名、密码长度和昵称，固定创建 READER 角色，密码保存为 BCrypt 哈希。登录核对密码和账号状态，成
+P[122] Normal: 图5-1-1 登录界面             图5-1-2 注册界面
+P[123] Normal: 关键代码
+P[124] Normal: package cn.edu.library.module;
+P[125] Normal: import static cn.edu.library.common.Inputs.*;
+P[126] Normal: import cn.edu.library.common.*;
+P[127] Normal: import jakarta.servlet.http.HttpServletRequest;
+P[128] Normal: import java.util.*;
+P[129] Normal: import org.springframework.web.bind.annotation.*;
+P[130] Normal: @RestController
+P[131] Normal: @RequestMapping("/api/auth")
+P[132] Normal: public class AuthController {
+P[133] Normal: private final Db db;
+P[134] Normal: private final Auth auth;
+P[135] Normal: public AuthController(Db db, Auth auth) {
+P[136] Normal: this.db = db;
+P[137] Normal: this.auth = auth;
+P[138] Normal: }
+P[139] Normal: @PostMapping("/login")
+P[140] Normal: public Object login(@RequestBody Map<String, Object> body) {
+P[141] Normal: String name = text(body, "username", 40), password = text(bo
+P[142] Normal: if (password.getBytes(java.nio.charset.StandardCharsets.UTF_
+P[143] Normal: throw ApiException.bad("密码最多 72 字节");
+P[144] Normal: var rows = db.list("SELECT * FROM readers WHERE username=?",
+P[145] Normal: if (rows.isEmpty()
+P[146] Normal: || !auth.passwords.matches(password, String.valueOf(rows.get
+P[147] Normal: throw new ApiException(401, "用户名或密码错误");
+P[148] Normal: var user = rows.get(0);
+P[149] Normal: if (!Boolean.TRUE.equals(user.get("enabled"))) throw new Api
+P[150] Normal: user.remove("password_hash");
+P[151] Normal: return Map.of("token", auth.issue(Db.id(user, "id")), "user"
+P[152] Normal: }
+P[153] Normal: @PostMapping("/register")
+P[154] Normal: public Object register(@RequestBody Map<String, Object> body
+P[155] Normal: String name = text(body, "username", 40),
+P[156] Normal: password = text(body, "password", 72),
+P[157] Normal: nickname = text(body, "nickname", 60);
+P[158] Normal: if (!name.matches("[a-zA-Z0-9_]{3,24}")) throw ApiException.
+P[159] Normal: if (password.length() < 8
+P[160] Normal: || password.getBytes(java.nio.charset.StandardCharsets.UTF_8
+P[161] Normal: throw ApiException.bad("密码至少 8 位，最多 72 字节");
+P[162] Normal: db.update(
+P[163] Normal: "INSERT INTO readers(username,password_hash,nickname,role) V
+P[164] Normal: name,
+P[165] Normal: auth.passwords.encode(password),
+P[166] Normal: nickname);
+P[167] Normal: return Map.of("message", "注册成功，请登录");
+P[168] Normal: }
+P[169] Normal: @PostMapping("/logout")
+P[170] Normal: public Object logout(HttpServletRequest req) {
+P[171] Normal: auth.logout(req);
+P[172] Normal: return Map.of("message", "已退出登录");
+P[173] Normal: }
+P[174] Normal: }
+P[175] Heading 2: 5.2 图书收藏功能模块
+P[176] Normal: 读者可以在详情中收藏图书，并在个人收藏页面取消。favorites 使用读者编号和图书编号作为联合主键，重复提交收藏不会
+P[177] Normal: 服务端收藏接口使用 MERGE INTO 语句按（reader_id, book_id）联合主键写入，重复提交收藏不会新
+P[179] Normal: 图5-2-1 图书收藏
+P[180] Normal: 关键代码：FavoriteController 收藏与取消
+P[181] Normal: @PutMapping("/{bookId}")
+public Object add(HttpServletReques
+P[182] Heading 2: 5.3 读者书评功能模块
+P[183] Normal: 书评要求读者曾经借阅过对应图书，评分为 1 至 5 星，内容不能为空。每人每书仅保留一条评价，再次提交时更新自己的内容。
+P[184] Normal: 保存书评时先查询该读者对本书的借阅记录，未借阅直接返回业务错误；评分限制 1 至 5 星，内容不超过 1000 字。再次
+P[186] Normal: 图5-3-1读者书评
+P[187] Normal: 关键代码：ReviewController 保存书评（借后评价）
+P[188] Normal: @PostMapping
+P[189] Normal: public Object save(HttpServletRequest req, @RequestBody Map<
+P[190] Normal: long user = auth.id(req);
+P[191] Normal: int book = number(body, "book_id", 1, Integer.MAX_VALUE);
+P[192] Normal: if (db.count("SELECT COUNT(*) FROM loans WHERE reader_id=? A
+P[193] Normal: user, book) == 0)
+P[194] Normal: throw ApiException.bad("借阅后才能评价本书");
+P[195] Normal: int rating = number(body, "rating", 1, 5);
+P[196] Normal: String content = text(body, "content", 1000);
+P[197] Normal: db.update("MERGE INTO reviews(reader_id,book_id,rating,conte
+P[198] Normal: KEY(reader_id,book_id) VALUES(?,?,?,?,CURRENT_TIMESTAMP)",
+P[199] Normal: user, book, rating, content);
+P[200] Normal: return Map.of("message", "书评已发布");
+P[201] Normal: }
+P[202] Heading 1: 六、运行及调试结果
+P[203] Heading 2: 6.1 接口约定与失败反馈
+P[204] Normal: 接口使用 /api 前缀，注册和登录之外需要认证。列表返回 JSON 数组，详情返回对象，写入与错误结果提供 messa
+T[205] TABLE 6x3: 状态码
+P[206] Heading 2: 6.2 系统测试与验收结果
+P[207] Normal: 在 IDEA 中执行 LibraryIntegrationTest，结果为 12 项通过、0 项失败。测试使用独立 H2
+T[208] TABLE 13x3: 编号
+P[209] Normal: Android Studio 完成 assembleDebug 与 lintDebug，构建成功，Lint 为 0 个错
+P[210] Normal: 持久化验收在 IDEA 停止后端后重新启动，对图书、借阅、预约、书评、反馈、读者和统计响应逐项计算 SHA-256，前后
+P[211] Heading 2: 6.3 运行界面与前后端联调
+P[212] Normal: 图 12 为真实模拟器截图。左图展示登录界面，右图展示管理员首页及服务端统计。最近一次重新登录和读取馆藏已通过，模拟器服
+P[214] 题注1: 图 6-3  登录页面与验收结束时的管理员首页
+P[215] Normal: 在 IDEA 运行 QingheBackend 后，服务监听 127.0.0.1:18080。模拟器使用 10.0.2.
+P[216] Normal: 初次导入源码会建立基础演示数据；源码压缩包不包含本机测试数据库，因此新环境首次启动的数量与上述联调结束截图不同。
+P[217] Heading 1: 七、收获及体会
+P[218] Normal: 我负责的图书收藏与读者书评，表面上都是简单的增删改查，但真正需要处理的是数据约束与权限边界。收藏模块的关键是幂等：同一读
+P[219] Normal: 前后端联调让我理解了接口契约的重要性。收藏与书评的路径、字段、状态码都需要与后端约定一致：列表返回 JSON 数组，写入
+P[220] Normal: 七人协作让我体会到个人模块与共享基础设施的边界。我的两个模块依赖图书、借阅和读者数据，需要与负责借阅、读者管理的成员约定
+P[222] Heading 1: 参考文献
+P[223] Normal: [1] Phillips, B., Stewart, C., & Marsicano, K. (2022). Andro
+P[224] Normal: [2] Walls, C. (2022). Spring in Action (6th ed.). Manning Pu
+P[225] Normal: [3] Silberschatz, A., Korth, H. F., & Sudarshan, S. (2019). 
+P[226] Heading 1: 九、附录：源代码
+P[227] Normal: 附录1：图书收藏模块后端接口（FavoriteController.java）
+P[228] Normal: 来源：
+P[229] Normal: backend/src/main/java/cn/edu/library/module/FavoriteControll
+T[230] TABLE 1x1: // 图书收藏模块：列表查询、幂等收藏、取消收藏
+packa
+P[231] Normal: 附录2：读者书评模块后端接口（ReviewController.java）
+P[232] Normal: 来源：
+P[233] Normal: backend/src/main/java/cn/edu/library/module/ReviewController
+T[234] TABLE 1x1: // 读者书评模块：列表查询、借后评价（资格校验）、本人或管
+P[235] Normal: 附录3：Android 收藏页面（FavoriteScreen.java）
+P[236] Normal: 来源：
+P[237] Normal: android/app/src/main/java/cn/edu/library/mobile/screens/Favo
+T[238] TABLE 1x1: // Android 收藏页面：请求 /favorites 
+P[239] Normal: 附录4：Android 书评页面（ReviewScreen.java）
+P[240] Normal: 来源：
+P[241] Normal: android/app/src/main/java/cn/edu/library/mobile/screens/Revi
+T[242] TABLE 1x1: // Android 书评页面：按图书查看书评、从借阅写书评
+P[243] Normal: 附录5：收藏与书评数据表设计（schema.sql 节选）
+P[244] Normal: 来源：backend/src/main/resources/schema.sql。favorites 使用联合主键，re
+T[245] TABLE 1x1: // 收藏表：联合主键保证同一读者对同一本书只有一条记录
+C
+P[249] Normal: 学号： 22030000
+P[250] Normal: 姓名： 王某某
+P[251] Normal: 课程报告评分：
+T[252] TABLE 9x2: 评分点
+P[254] Normal: 评语：
+

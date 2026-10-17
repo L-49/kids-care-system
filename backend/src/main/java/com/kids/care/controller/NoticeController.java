@@ -20,17 +20,18 @@ public class NoticeController {
 
     private final INoticeService noticeService;
 
-    /** 分页查询 */
+    /** 分页查询（status 为空时不展示已撤回） */
     @GetMapping("/page")
     public Result<List<Notice>> page(@RequestParam(defaultValue = "1") int pageNum,
                                          @RequestParam(defaultValue = "10") int pageSize,
                                          @RequestParam(required = false) String keyword,
-                                         @RequestParam(required = false) String type) {
-        IPage<Notice> page = noticeService.pageQuery(pageNum, pageSize, keyword, type);
+                                         @RequestParam(required = false) String type,
+                                         @RequestParam(required = false) Integer status) {
+        IPage<Notice> page = noticeService.pageQuery(pageNum, pageSize, keyword, type, status);
         return Result.page(page.getRecords(), page.getTotal());
     }
 
-    /** 全部列表（下拉框用） */
+    /** 全部列表（对外可见：仅已发布且已到点） */
     @GetMapping("/all")
     public Result<List<Notice>> all() {
         return Result.ok(noticeService.listAll());
@@ -45,14 +46,28 @@ public class NoticeController {
     /** 新增 */
     @PostMapping
     public Result<Void> add(@Valid @RequestBody Notice entity) {
-        noticeService.save(entity);
+        noticeService.saveNotice(entity);
         return Result.ok();
     }
 
     /** 修改 */
     @PutMapping
     public Result<Void> edit(@Valid @RequestBody Notice entity) {
-        noticeService.updateById(entity);
+        noticeService.updateNotice(entity);
+        return Result.ok();
+    }
+
+    /** 立即发布：草稿 / 定时公告立刻对外可见 */
+    @PostMapping("/{id}/publish")
+    public Result<Void> publish(@PathVariable Long id) {
+        noticeService.publishNow(id);
+        return Result.ok();
+    }
+
+    /** 撤回：已发布公告置为已撤回（保留记录，不物理删除） */
+    @PostMapping("/{id}/revoke")
+    public Result<Void> revoke(@PathVariable Long id) {
+        noticeService.revoke(id);
         return Result.ok();
     }
 
