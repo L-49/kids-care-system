@@ -29,6 +29,9 @@ public class ImportResult {
     /** 失败明细，按 Excel 行号排序 */
     private List<RowError> errors = new ArrayList<>();
 
+    /** 本次导入的批次号（全部失败时为空），可用于追溯导入记录 */
+    private String batchId;
+
     public void addError(int rowNum, String name, String message) {
         this.errors.add(new RowError(rowNum, name, message));
         this.failCount = this.errors.size();

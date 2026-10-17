@@ -41,6 +41,35 @@
       <el-button type="primary" @click="resultVisible = false">知道了</el-button>
     </template>
   </el-dialog>
+
+  <el-drawer v-model="historyVisible" :title="`变更记录 · ${historyChild}`" size="640px">
+    <el-timeline v-if="historyList.length">
+      <el-timeline-item
+        v-for="h in historyList"
+        :key="h.id"
+        :timestamp="h.createTime"
+        placement="top"
+      >
+        <div class="hist-item">
+          <div class="hist-line">
+            <el-tag size="small" :type="typeTag(h.changeType)">{{ h.changeType }}</el-tag>
+            <template v-if="h.fieldLabel && h.fieldLabel !== '—'">
+              <span class="hist-field">{{ h.fieldLabel }}</span>
+              <span class="hist-old">{{ h.oldValue || '(空)' }}</span>
+              <span class="hist-arrow">→</span>
+              <span class="hist-new">{{ h.newValue || '(空)' }}</span>
+            </template>
+            <span v-else class="hist-field">{{ h.newValue }}</span>
+          </div>
+          <div class="hist-meta">
+            操作人：{{ h.operator || '系统' }}
+            <span v-if="h.batchId">　批次：{{ h.batchId }}</span>
+          </div>
+        </div>
+      </el-timeline-item>
+    </el-timeline>
+    <el-empty v-else description="暂无变更记录" />
+  </el-drawer>
 </template>
 
 <script setup>
@@ -48,10 +77,29 @@ import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Download, Upload } from '@element-plus/icons-vue'
 import CrudPage from '@/components/CrudPage.vue'
-import { childApi, clazzApi, importChildren, childImportTemplate } from '@/api'
+import { childApi, clazzApi, importChildren, childImportTemplate, childHistory } from '@/api'
 
 const crud = ref()
 const clazzList = ref([])
+
+// 变更留痕
+const historyVisible = ref(false)
+const historyList = ref([])
+const historyChild = ref('')
+
+async function openHistory(row) {
+  historyChild.value = row.name
+  historyList.value = []
+  historyVisible.value = true
+  const res = await childHistory(row.id)
+  historyList.value = res.data || []
+}
+
+function typeTag(t) {
+  if (t === '新增') return 'success'
+  if (t === '导入') return 'warning'
+  return 'primary'
+}
 
 // Excel 导入
 const importing = ref(false)
@@ -180,6 +228,9 @@ const config = {
       placeholder: '如：牛奶、花生过敏。填写后食谱页面会自动标注该幼儿'
     }
   ],
+  rowActions: [
+    { label: '变更记录', type: 'primary', handler: (row) => openHistory(row) }
+  ],
   defaults: { gender: '男', status: 1 }
 }
 
@@ -188,3 +239,40 @@ onMounted(async () => {
   clazzList.value = (res.data || []).map((c) => ({ label: c.name, value: c.id }))
 })
 </script>
+
+<style scoped>
+.hist-item {
+  font-size: 13px;
+}
+
+.hist-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hist-field {
+  color: #303133;
+  font-weight: 500;
+}
+
+.hist-old {
+  color: #909399;
+  text-decoration: line-through;
+}
+
+.hist-arrow {
+  color: #c0c4cc;
+}
+
+.hist-new {
+  color: #303133;
+}
+
+.hist-meta {
+  margin-top: 6px;
+  color: #909399;
+  font-size: 12px;
+}
+</style>

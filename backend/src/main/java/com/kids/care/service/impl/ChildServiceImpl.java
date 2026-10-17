@@ -8,8 +8,11 @@ import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import com.kids.care.common.BizException;
 import com.kids.care.common.ChildCompleteness;
+import com.kids.care.common.UserContext;
 import com.kids.care.dto.ImportResult;
 import com.kids.care.entity.Child;
+import com.kids.care.entity.ChildChangeLog;
+import com.kids.care.mapper.ChildChangeLogMapper;
 import com.kids.care.mapper.ChildMapper;
 import com.kids.care.service.IChildService;
 import com.kids.care.entity.Clazz;
@@ -23,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -31,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -44,6 +49,8 @@ import java.util.stream.Collectors;
 public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements IChildService {
 
     private final ClazzMapper clazzMapper;
+    private final ChildChangeLogMapper changeLogMapper;
+
     @Override
     public IPage<Child> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId,
                                   Integer status, Boolean incompleteOnly) {
@@ -114,24 +121,31 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void saveChild(Child entity) {
         normalize(entity);
         if (entity.getStatus() == null) {
             entity.setStatus(1);
         }
         save(entity);
+        changeLogMapper.insert(wholeLog(entity, ChildChangeLog.TYPE_CREATE, "创建档案", null));
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateChild(Child entity) {
         if (entity.getId() == null) {
             throw new BizException("缺少幼儿编号，无法修改");
         }
-        if (getById(entity.getId()) == null) {
+        Child old = getById(entity.getId());
+        if (old == null) {
             throw new BizException("该幼儿档案不存在或已删除");
         }
         normalize(entity);
         updateById(entity);
+        // 字段级差异留痕：先拿旧值再对比，updateById 是直接覆盖，事后拿不到旧值
+        List<ChildChangeLog> logs = diff(old, entity, UserContext.displayName());
+        logs.forEach(changeLogMapper::insert);
     }
 
     /** 统一整理入参：去空格、补默认性别、校验班级存在 */
@@ -222,6 +236,13 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
 
         if (!toSave.isEmpty()) {
             saveBatch(toSave);
+            // 一次导入共用一个批次号，便于按批次追溯"这批是谁在什么时候导入的"
+            String batchId = "IMP" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                    + "-" + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+            for (Child c : toSave) {
+                changeLogMapper.insert(wholeLog(c, ChildChangeLog.TYPE_IMPORT, "Excel 批量导入", batchId));
+            }
+            result.setBatchId(batchId);
         }
         result.setTotal(total);
         result.setSuccessCount(toSave.size());
@@ -367,5 +388,86 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
 
     private static String dupKey(String name, String phone) {
         return (name == null ? "" : name.trim()) + "|" + (phone == null ? "" : phone.trim());
+    }
+
+    // ==================== 变更留痕 ====================
+
+    @Override
+    public List<ChildChangeLog> listHistory(Long childId) {
+        return changeLogMapper.selectList(new LambdaQueryWrapper<ChildChangeLog>()
+                .eq(ChildChangeLog::getChildId, childId)
+                .orderByDesc(ChildChangeLog::getCreateTime)
+                .orderByDesc(ChildChangeLog::getId));
+    }
+
+    /**
+     * 字段级差异对比。只留痕 8 个关键字段，班级比较的是 id 但展示名称。
+     *
+     * <p>过敏史单独说明：膳食模块直接读 {@code child.allergy} 来标注过敏幼儿，
+     * 家长临时补充过敏信息时，必须能查到"谁在什么时候改的"。
+     */
+    private List<ChildChangeLog> diff(Child old, Child now, String operator) {
+        List<ChildChangeLog> logs = new ArrayList<>();
+        addDiff(logs, old, now, operator, "name", "幼儿姓名", old.getName(), now.getName());
+        addDiff(logs, old, now, operator, "gender", "性别", old.getGender(), now.getGender());
+        addDiff(logs, old, now, operator, "birthday", "出生日期",
+                str(old.getBirthday()), str(now.getBirthday()));
+        if (!Objects.equals(old.getClazzId(), now.getClazzId())) {
+            addDiff(logs, old, now, operator, "clazzId", "所在班级",
+                    clazzName(old.getClazzId()), clazzName(now.getClazzId()));
+        }
+        addDiff(logs, old, now, operator, "guardianName", "家长姓名",
+                old.getGuardianName(), now.getGuardianName());
+        addDiff(logs, old, now, operator, "guardianPhone", "家长电话",
+                old.getGuardianPhone(), now.getGuardianPhone());
+        addDiff(logs, old, now, operator, "address", "家庭住址", old.getAddress(), now.getAddress());
+        addDiff(logs, old, now, operator, "allergy", "过敏史", old.getAllergy(), now.getAllergy());
+        return logs;
+    }
+
+    private void addDiff(List<ChildChangeLog> logs, Child old, Child now, String operator,
+                         String field, String label, String oldVal, String newVal) {
+        if (Objects.equals(oldVal, newVal)) {
+            return;
+        }
+        ChildChangeLog log = new ChildChangeLog();
+        log.setChildId(now.getId() != null ? now.getId() : old.getId());
+        log.setChildName(nvl(now.getName(), old.getName()));
+        log.setChangeType(ChildChangeLog.TYPE_UPDATE);
+        log.setFieldName(field);
+        log.setFieldLabel(label);
+        log.setOldValue(oldVal);
+        log.setNewValue(newVal);
+        log.setOperator(operator);
+        logs.add(log);
+    }
+
+    private String clazzName(Long id) {
+        if (id == null) {
+            return null;
+        }
+        Clazz c = clazzMapper.selectById(id);
+        return c == null ? ("#" + id) : c.getName();
+    }
+
+    private static String str(Object o) {
+        return o == null ? null : o.toString();
+    }
+
+    private static String nvl(String a, String b) {
+        return a != null && !a.isBlank() ? a : b;
+    }
+
+    /** 整条记录（新增 / 导入）只写一行，不做字段级展开，避免日志表被建库时的 8 行噪音淹没 */
+    private ChildChangeLog wholeLog(Child c, String type, String desc, String batchId) {
+        ChildChangeLog log = new ChildChangeLog();
+        log.setChildId(c.getId());
+        log.setChildName(c.getName());
+        log.setChangeType(type);
+        log.setFieldLabel("—");
+        log.setNewValue(desc);
+        log.setOperator(UserContext.displayName());
+        log.setBatchId(batchId);
+        return log;
     }
 }

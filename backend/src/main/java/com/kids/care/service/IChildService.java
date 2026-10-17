@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.kids.care.dto.ImportResult;
 import com.kids.care.entity.Child;
+import com.kids.care.entity.ChildChangeLog;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.OutputStream;
@@ -35,4 +36,7 @@ public interface IChildService extends IService<Child> {
 
     /** 输出导入模板（xlsx） */
     void writeImportTemplate(OutputStream out);
+
+    /** 某幼儿的变更记录（按时间倒序） */
+    List<ChildChangeLog> listHistory(Long childId);
 }

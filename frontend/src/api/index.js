@@ -49,6 +49,8 @@ export const importChildren = (file) => {
 }
 export const childImportTemplate = () =>
   request.get('/child/import/template', { responseType: 'blob' })
+// 幼儿档案变更留痕
+export const childHistory = (id) => request.get(`/child/${id}/history`)
 // 公告状态机：立即发布 / 撤回
 export const publishNotice = (id) => request.post(`/notice/${id}/publish`)
 export const revokeNotice = (id) => request.post(`/notice/${id}/revoke`)

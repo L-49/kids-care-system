@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.kids.care.common.Result;
 import com.kids.care.dto.ImportResult;
 import com.kids.care.entity.Child;
+import com.kids.care.entity.ChildChangeLog;
 import com.kids.care.service.IChildService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -64,6 +65,12 @@ public class ChildController {
     @PostMapping("/import")
     public Result<ImportResult> importExcel(@RequestParam("file") MultipartFile file) {
         return Result.ok(childService.importChildren(file));
+    }
+
+    /** 变更留痕：某幼儿的完整变更记录 */
+    @GetMapping("/{id}/history")
+    public Result<List<ChildChangeLog>> history(@PathVariable Long id) {
+        return Result.ok(childService.listHistory(id));
     }
 
     /** 详情 */
