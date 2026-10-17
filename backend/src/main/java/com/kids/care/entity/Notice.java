@@ -30,6 +30,11 @@ public class Notice {
     /** 状态：已撤回（保留记录，不再对外展示） */
     public static final int STATUS_REVOKED = 3;
 
+    /** 可见范围：全园 */
+    public static final String TARGET_ALL = "all";
+    /** 可见范围：指定班级 */
+    public static final String TARGET_CLASS = "class";
+
     @TableId(type = IdType.AUTO)
     private Long id;
 
@@ -51,6 +56,16 @@ public class Notice {
 
     /** 公告状态：0草稿 1定时待发 2已发布 3已撤回 */
     private Integer status;
+
+    /** 可见范围：all 全园 / class 指定班级 */
+    private String targetType;
+
+    /** 指定班级ID，targetType=class 时有效 */
+    private Long targetId;
+
+    /** 可见范围展示文案（班级名），查询时填充 */
+    @TableField(exist = false)
+    private String targetLabel;
 
     /** 发布时间：定时发布时表示计划发布时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

@@ -2,7 +2,7 @@
   <CrudPage
     ref="crud"
     :config="config"
-    :options="{ typeOptions, statusOptions, searchStatusOptions }"
+    :options="{ typeOptions, statusOptions, searchStatusOptions, targetOptions, clazzList }"
   />
 </template>
 
@@ -10,13 +10,21 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import CrudPage from '@/components/CrudPage.vue'
-import { noticeApi, dictApi, publishNotice, revokeNotice } from '@/api'
+import { noticeApi, dictApi, publishNotice, revokeNotice, clazzApi } from '@/api'
 
 const crud = ref()
 const user = JSON.parse(localStorage.getItem('kids_user') || '{}')
 
 // 类型选项来自数据字典 notice_type，新增类型只需在字典里加一项，不用改代码
 const typeOptions = ref([])
+// 班级选项（定向可见用）
+const clazzList = ref([])
+
+// 可见范围：只做两档，教师维度需要先补 sys_user 与 teacher 的绑定
+const targetOptions = [
+  { label: '全园', value: 'all' },
+  { label: '指定班级', value: 'class' }
+]
 
 // 字典项的展示颜色（未配置的类型回落到灰色）
 const typeColor = { 通知: 'primary', 活动: 'success', 食谱: 'warning', 放假: 'info' }
@@ -53,15 +61,18 @@ const config = {
     { prop: 'title', label: '标题', minWidth: 200 },
     { prop: 'type', label: '类型', width: 90, mapTag: (v) => typeColor[v] || 'info' },
     { prop: 'status', label: '状态', width: 105, map: STATUS_TEXT, mapTag: (v) => STATUS_TAG[v] || 'info' },
+    { prop: 'targetLabel', label: '可见范围', width: 100 },
     { prop: 'publisher', label: '发布人', width: 100 },
     { prop: 'publishTime', label: '发布时间', width: 175 },
-    { prop: 'content', label: '内容', minWidth: 220 }
+    { prop: 'content', label: '内容', minWidth: 200 }
   ],
   fields: [
     { field: 'title', label: '标题', required: true, span: 24 },
     { field: 'type', label: '类型', type: 'select', options: 'typeOptions', required: true },
     { field: 'publisher', label: '发布人' },
     { field: 'status', label: '发布方式', type: 'select', options: 'statusOptions' },
+    { field: 'targetType', label: '可见范围', type: 'select', options: 'targetOptions' },
+    { field: 'targetId', label: '指定班级', type: 'select', options: 'clazzList' },
     { field: 'publishTime', label: '发布时间', type: 'datetime' },
     { field: 'content', label: '公告内容', type: 'textarea', span: 24 }
   ],
@@ -103,7 +114,12 @@ const config = {
       }
     }
   ],
-  defaults: { type: '通知', status: STATUS_PUBLISHED, publisher: user.realName || user.username || '管理员' }
+  defaults: {
+    type: '通知',
+    status: STATUS_PUBLISHED,
+    targetType: 'all',
+    publisher: user.realName || user.username || '管理员'
+  }
 }
 
 onMounted(async () => {
@@ -118,6 +134,12 @@ onMounted(async () => {
       { label: '食谱', value: '食谱' },
       { label: '放假', value: '放假' }
     ]
+  }
+  try {
+    const clazz = await clazzApi.all()
+    clazzList.value = (clazz.data || []).map((c) => ({ label: c.name, value: c.id }))
+  } catch (e) {
+    clazzList.value = []
   }
 })
 </script>

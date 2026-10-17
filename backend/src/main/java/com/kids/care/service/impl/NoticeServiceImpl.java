@@ -6,8 +6,15 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.kids.care.common.BizException;
+import com.kids.care.common.UserContext;
+import com.kids.care.entity.Child;
+import com.kids.care.entity.Clazz;
 import com.kids.care.entity.Notice;
+import com.kids.care.entity.SysUser;
+import com.kids.care.mapper.ChildMapper;
+import com.kids.care.mapper.ClazzMapper;
 import com.kids.care.mapper.NoticeMapper;
+import com.kids.care.mapper.SysUserMapper;
 import com.kids.care.service.INoticeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +25,10 @@ import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 通知公告 业务实现
@@ -26,13 +37,24 @@ import java.util.List;
  * <ul>
  *   <li>定时待发：由 {@link #publishDueNotices()} 每分钟扫描，到点自动置为已发布</li>
  *   <li>已撤回：只改状态、保留记录，不物理删除（审计要求）</li>
- *   <li>对外可见只有一个口径：{@code status=2 且 publish_time <= 当前时间}</li>
+ *   <li>对外可见口径：{@code status=2 且 publish_time <= 当前时间}</li>
  * </ul>
+ *
+ * <p>定向可见只做两档：全园 / 指定班级。
+ * 家长的班级来自 {@code child.guardian_phone = sys_user.phone} 的关联
+ * （种子数据里 parent 张先生 13800000003 正好是张小明 的家长电话）。
+ * <b>教师维度暂不做</b>——sys_user 与 teacher 表没有关联字段，绑不上。
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> implements INoticeService {
+
+    private static final String ROLE_PARENT = "parent";
+
+    private final SysUserMapper sysUserMapper;
+    private final ChildMapper childMapper;
+    private final ClazzMapper clazzMapper;
 
     @Override
     public IPage<Notice> pageQuery(int pageNum, int pageSize, String keyword, String type, Integer status) {
@@ -49,22 +71,27 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
             // 管理端默认不展示已撤回的公告，需要查看时显式传 status=3
             qw.ne(Notice::getStatus, Notice.STATUS_REVOKED);
         }
+        applyVisibility(qw);
         qw.orderByDesc(Notice::getPublishTime).orderByDesc(Notice::getId);
-        return page(new Page<>(pageNum, pageSize), qw);
+        IPage<Notice> page = page(new Page<>(pageNum, pageSize), qw);
+        fillTargetLabel(page.getRecords());
+        return page;
     }
 
     /**
      * 对外可见的公告列表（最近 20 条）。
-     * 注意：这里必须同时过滤状态与发布时间，否则定时未到的公告会提前露出。
+     * 必须同时过滤状态与发布时间，否则定时未到的公告会提前露出。
      */
     @Override
     public List<Notice> listAll() {
-        return list(new LambdaQueryWrapper<Notice>()
+        LambdaQueryWrapper<Notice> qw = new LambdaQueryWrapper<Notice>()
                 .eq(Notice::getStatus, Notice.STATUS_PUBLISHED)
-                .le(Notice::getPublishTime, LocalDateTime.now())
-                .orderByDesc(Notice::getPublishTime)
-                .orderByDesc(Notice::getId)
-                .last("limit 20"));
+                .le(Notice::getPublishTime, LocalDateTime.now());
+        applyVisibility(qw);
+        qw.orderByDesc(Notice::getPublishTime).orderByDesc(Notice::getId).last("limit 20");
+        List<Notice> list = list(qw);
+        fillTargetLabel(list);
+        return list;
     }
 
     @Override
@@ -85,6 +112,11 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
         }
         if (old.getStatus() != null && old.getStatus() == Notice.STATUS_REVOKED) {
             throw new BizException("公告已撤回，不能再修改；如需重新发布请新建公告");
+        }
+        // 老接口调用方可能不传可见范围，此时沿用原值，避免误改成全园
+        if (entity.getTargetType() == null) {
+            entity.setTargetType(old.getTargetType());
+            entity.setTargetId(old.getTargetId());
         }
         normalize(entity);
         if (!super.updateById(entity)) {
@@ -147,17 +179,72 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
         return rows;
     }
 
+    // ==================== 定向可见 ====================
+
     /**
-     * 状态与发布时间的统一校验。
+     * 按当前登录人的角色追加可见性条件。
      *
-     * <p>核心规则：状态决定时间的含义，两者不能互相矛盾——
+     * <p>只有家长受限（全园 + 自己孩子所在班级）；园长与教师视为管理视角，不加限制。
+     * 家长端还没有独立界面，所以这里对管理端列表也生效——方便演示：
+     * 用 parent 账号登录就能直接看到「小班专属通知」不会出现在中班家长面前。
+     */
+    private void applyVisibility(LambdaQueryWrapper<Notice> qw) {
+        if (!ROLE_PARENT.equals(UserContext.role())) {
+            return;
+        }
+        Set<Long> clazzIds = parentClazzIds();
+        if (clazzIds.isEmpty()) {
+            qw.eq(Notice::getTargetType, Notice.TARGET_ALL);
+            return;
+        }
+        qw.and(w -> w.eq(Notice::getTargetType, Notice.TARGET_ALL)
+                .or(o -> o.eq(Notice::getTargetType, Notice.TARGET_CLASS)
+                        .in(Notice::getTargetId, clazzIds)));
+    }
+
+    /** 家长账号 → 手机号 → 其孩子所在班级（无绑定表，用电话关联） */
+    private Set<Long> parentClazzIds() {
+        Long uid = UserContext.userId();
+        if (uid == null) {
+            return Set.of();
+        }
+        SysUser user = sysUserMapper.selectById(uid);
+        if (user == null || !StringUtils.hasText(user.getPhone())) {
+            return Set.of();
+        }
+        return childMapper.selectList(new LambdaQueryWrapper<Child>()
+                        .eq(Child::getGuardianPhone, user.getPhone()))
+                .stream().map(Child::getClazzId).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
+
+    /** 把 target_id 翻译成班级名，列表直接展示「小班」而不是「2」 */
+    private void fillTargetLabel(List<Notice> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        Set<Long> ids = list.stream()
+                .filter(n -> Notice.TARGET_CLASS.equals(n.getTargetType()))
+                .map(Notice::getTargetId).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> names = ids.isEmpty() ? Map.of()
+                : clazzMapper.selectBatchIds(ids).stream()
+                        .collect(Collectors.toMap(Clazz::getId, Clazz::getName, (a, b) -> a));
+        list.forEach(n -> n.setTargetLabel(Notice.TARGET_CLASS.equals(n.getTargetType())
+                ? names.getOrDefault(n.getTargetId(), "指定班级")
+                : "全园"));
+    }
+
+    /**
+     * 状态、发布时间、可见范围的统一校验。
+     *
+     * <p>核心规则：状态决定时间含义，两者不能互相矛盾——
      * 「定时待发」的时间必须在未来，「已发布」的时间必须在现在或过去。
      */
     private void normalize(Notice entity) {
         LocalDateTime now = nowSeconds();
         Integer status = entity.getStatus();
         if (status == null) {
-            // 未传状态时按时间推断：时间在未来视为定时，否则视为立即发布
             status = (entity.getPublishTime() != null && entity.getPublishTime().isAfter(now))
                     ? Notice.STATUS_SCHEDULED : Notice.STATUS_PUBLISHED;
         }
@@ -188,13 +275,33 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
             default -> throw new BizException("公告状态不合法");
         }
         entity.setStatus(status);
+
+        // 可见范围
+        String targetType = entity.getTargetType();
+        if (!StringUtils.hasText(targetType)) {
+            targetType = Notice.TARGET_ALL;
+        }
+        if (!Notice.TARGET_ALL.equals(targetType) && !Notice.TARGET_CLASS.equals(targetType)) {
+            throw new BizException("可见范围不合法");
+        }
+        if (Notice.TARGET_CLASS.equals(targetType)) {
+            if (entity.getTargetId() == null) {
+                throw new BizException("请选择公告可见的班级");
+            }
+            if (clazzMapper.selectById(entity.getTargetId()) == null) {
+                throw new BizException("所选班级不存在，请重新选择");
+            }
+        } else {
+            entity.setTargetId(null);
+        }
+        entity.setTargetType(targetType);
     }
 
     /**
      * 截断到秒的当前时间。
      *
      * <p>为什么必须截断：{@code notice.publish_time} 是 {@code DATETIME}（无小数秒），
-     * MySQL 写入时会把 {@code .5} 以上**四舍五入**到下一秒（如 16:11:46.7 → 16:11:47）。
+     * MySQL 写入时会把 {@code .5} 以上四舍五入到下一秒（如 16:11:46.7 → 16:11:47）。
      * 若直接用带纳秒的 now() 写库，紧接着的「已发布且 publish_time <= now()」查询
      * 就可能把刚发布的公告判为"还没到时间"，出现最长 1 秒的不可见窗口。
      */
