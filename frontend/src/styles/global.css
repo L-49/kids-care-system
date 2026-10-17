@@ -1,0 +1,48 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Microsoft YaHei', 'PingFang SC', Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color: #303133;
+  background: #f5f7fa;
+}
+
+.page-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px 18px 4px;
+}
+
+.page-title {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 14px;
+  padding-left: 10px;
+  border-left: 4px solid #409eff;
+  line-height: 1;
+}
+
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 0;
+}
