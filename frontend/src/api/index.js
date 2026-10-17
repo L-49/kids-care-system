@@ -41,6 +41,14 @@ export const approveLeave = (id, pass, approver) =>
   request.put(`/leave/approve/${id}`, null, { params: { pass, approver } })
 export const cleanLog = () => request.delete('/log/clean')
 export const allergyChildren = () => request.get('/child/allergy')
+// 幼儿档案 Excel：批量导入与模板下载
+export const importChildren = (file) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return request.post('/child/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
+export const childImportTemplate = () =>
+  request.get('/child/import/template', { responseType: 'blob' })
 // 公告状态机：立即发布 / 撤回
 export const publishNotice = (id) => request.post(`/notice/${id}/publish`)
 export const revokeNotice = (id) => request.post(`/notice/${id}/revoke`)

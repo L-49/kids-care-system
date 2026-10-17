@@ -2,8 +2,11 @@ package com.kids.care.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.kids.care.dto.ImportResult;
 import com.kids.care.entity.Child;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.OutputStream;
 import java.util.List;
 
 /**
@@ -26,4 +29,10 @@ public interface IChildService extends IService<Child> {
 
     /** 修改档案（校验班级存在） */
     void updateChild(Child entity);
+
+    /** Excel 批量导入：逐行校验，成功的入库，失败的返回行号与原因 */
+    ImportResult importChildren(MultipartFile file);
+
+    /** 输出导入模板（xlsx） */
+    void writeImportTemplate(OutputStream out);
 }

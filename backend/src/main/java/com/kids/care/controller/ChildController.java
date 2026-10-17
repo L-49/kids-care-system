@@ -2,12 +2,18 @@ package com.kids.care.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.kids.care.common.Result;
+import com.kids.care.dto.ImportResult;
 import com.kids.care.entity.Child;
 import com.kids.care.service.IChildService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -42,6 +48,22 @@ public class ChildController {
     @GetMapping("/allergy")
     public Result<List<Child>> allergy() {
         return Result.ok(childService.listAllergy());
+    }
+
+    /** 下载 Excel 导入模板 */
+    @GetMapping("/import/template")
+    public void downloadTemplate(HttpServletResponse response) throws IOException {
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        String fileName = URLEncoder.encode("幼儿档案导入模板", StandardCharsets.UTF_8).replace("+", "%20");
+        response.setHeader("Content-Disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+        childService.writeImportTemplate(response.getOutputStream());
+    }
+
+    /** Excel 批量导入：逐行校验，成功的入库，失败的返回行号与原因 */
+    @PostMapping("/import")
+    public Result<ImportResult> importExcel(@RequestParam("file") MultipartFile file) {
+        return Result.ok(childService.importChildren(file));
     }
 
     /** 详情 */

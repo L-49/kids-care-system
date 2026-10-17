@@ -18,6 +18,10 @@ request.interceptors.request.use((config) => {
 // 响应拦截：统一处理业务码与异常
 request.interceptors.response.use(
   (res) => {
+    // 文件下载（blob）直接返回二进制，不按业务码解析
+    if (res.config && res.config.responseType === 'blob') {
+      return res.data
+    }
     const body = res.data
     if (body && body.code !== 200) {
       ElMessage.error(body.msg || '请求失败')
