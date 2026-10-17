@@ -20,7 +20,22 @@ request.interceptors.response.use(
   (res) => {
     // 文件下载（blob）直接返回二进制，不按业务码解析
     if (res.config && res.config.responseType === 'blob') {
-      return res.data
+      const data = res.data
+      // 下载接口出错时后端返回的是 HTTP 200 + JSON，被包成 blob 后会存成
+      // 一个「能保存但打不开」的假 xlsx。这里识别出来当失败处理。
+      if (data && data.type && data.type.includes('application/json')) {
+        return data.text().then((text) => {
+          let msg = '下载失败'
+          try {
+            msg = JSON.parse(text).msg || msg
+          } catch (e) {
+            // 不是标准 JSON 就用默认提示
+          }
+          ElMessage.error(msg)
+          return Promise.reject(new Error(msg))
+        })
+      }
+      return data
     }
     const body = res.data
     if (body && body.code !== 200) {

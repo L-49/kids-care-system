@@ -12,9 +12,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
@@ -65,6 +68,30 @@ public class ChildController {
     @PostMapping("/import")
     public Result<ImportResult> importExcel(@RequestParam("file") MultipartFile file) {
         return Result.ok(childService.importChildren(file));
+    }
+
+    /**
+     * 导出 Excel：跟随列表当前的筛选条件（关键字/班级/状态/仅看待补全），不是导全表。
+     *
+     * <p>先在内存里把 xlsx 生成完，成功后才写响应头与响应体。原因是全局异常处理返回的是
+     * HTTP 200 + JSON：如果一边写流一边出错，前端会下到一个「能保存但打不开」的假 xlsx。
+     */
+    @GetMapping("/export")
+    public void export(@RequestParam(required = false) String keyword,
+                       @RequestParam(required = false) Long clazzId,
+                       @RequestParam(required = false) Integer status,
+                       @RequestParam(required = false) Boolean incompleteOnly,
+                       HttpServletResponse response) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        childService.exportChildren(keyword, clazzId, status, incompleteOnly, buffer);
+
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setCharacterEncoding("utf-8");
+        String name = "幼儿档案_" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String fileName = URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20");
+        response.setHeader("Content-Disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
+        response.setContentLength(buffer.size());
+        buffer.writeTo(response.getOutputStream());
     }
 
     /** 变更留痕：某幼儿的完整变更记录 */

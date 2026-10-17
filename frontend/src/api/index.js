@@ -49,6 +49,10 @@ export const importChildren = (file) => {
 }
 export const childImportTemplate = () =>
   request.get('/child/import/template', { responseType: 'blob' })
+// 幼儿档案导出：参数与列表查询一致，导出的是「当前筛选结果」而不是全表
+// 导出比普通请求慢（后端要拼整个 xlsx），单独放宽超时
+export const exportChildren = (params) =>
+  request.get('/child/export', { params, responseType: 'blob', timeout: 60000 })
 // 幼儿档案变更留痕
 export const childHistory = (id) => request.get(`/child/${id}/history`)
 // 公告状态机：立即发布 / 撤回

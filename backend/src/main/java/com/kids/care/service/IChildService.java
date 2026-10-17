@@ -37,6 +37,12 @@ public interface IChildService extends IService<Child> {
     /** 输出导入模板（xlsx） */
     void writeImportTemplate(OutputStream out);
 
+    /**
+     * Excel 导出：筛选条件与列表完全一致（同一套 wrapper），
+     * 空结果或超过单次上限时抛 {@link com.kids.care.common.BizException}。
+     */
+    void exportChildren(String keyword, Long clazzId, Integer status, Boolean incompleteOnly, OutputStream out);
+
     /** 某幼儿的变更记录（按时间倒序） */
     List<ChildChangeLog> listHistory(Long childId);
 }

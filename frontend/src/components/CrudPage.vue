@@ -275,14 +275,19 @@ function visibleActions(row) {
   return (props.config.rowActions || []).filter((a) => !a.show || a.show(row))
 }
 
+/** 当前查询条件（去掉空值），列表与导出共用，保证导出的就是屏幕上这一批 */
+function buildParams() {
+  const params = { ...query, ...search }
+  Object.keys(params).forEach((k) => {
+    if (params[k] === '' || params[k] === null) delete params[k]
+  })
+  return params
+}
+
 async function load() {
   loading.value = true
   try {
-    const params = { ...query, ...search }
-    Object.keys(params).forEach((k) => {
-      if (params[k] === '' || params[k] === null) delete params[k]
-    })
-    const res = await props.config.api.page(params)
+    const res = await props.config.api.page(buildParams())
     rows.value = res.data || []
     total.value = res.total || 0
   } finally {
@@ -366,7 +371,8 @@ onMounted(() => {
   load()
 })
 
-defineExpose({ load, reload: load })
+// getQuery 供页面工具栏里的「导出」等操作复用当前筛选条件
+defineExpose({ load, reload: load, getQuery: buildParams })
 </script>
 
 <style scoped>

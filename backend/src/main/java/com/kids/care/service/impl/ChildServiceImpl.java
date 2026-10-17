@@ -8,6 +8,7 @@ import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.write.style.column.LongestMatchColumnWidthStyleStrategy;
 import com.kids.care.common.BizException;
 import com.kids.care.common.ChildCompleteness;
+import com.kids.care.common.ExcelExportSupport;
 import com.kids.care.common.UserContext;
 import com.kids.care.dto.ImportResult;
 import com.kids.care.entity.Child;
@@ -18,6 +19,7 @@ import com.kids.care.service.IChildService;
 import com.kids.care.entity.Clazz;
 import com.kids.care.mapper.ClazzMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -30,6 +32,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +57,21 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
     @Override
     public IPage<Child> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId,
                                   Integer status, Boolean incompleteOnly) {
+        IPage<Child> page = page(new Page<>(pageNum, pageSize),
+                buildWrapper(keyword, clazzId, status, incompleteOnly));
+        fillClazzName(page.getRecords());
+        fillCompleteness(page.getRecords());
+        return page;
+    }
+
+    /**
+     * 列表与导出共用同一套筛选条件与排序。
+     *
+     * <p>抽出来是有意的：如果导出另写一遍条件，日后改了一处忘了另一处，
+     * 就会出现「列表看到的」和「导出的」不是同一批数据 —— 这种问题很难被发现。
+     */
+    private LambdaQueryWrapper<Child> buildWrapper(String keyword, Long clazzId,
+                                                   Integer status, Boolean incompleteOnly) {
         LambdaQueryWrapper<Child> qw = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
             qw.and(w -> w.like(Child::getName, keyword)
@@ -71,10 +89,7 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
             qw.apply(ChildCompleteness.incompleteSql());
         }
         qw.orderByAsc(Child::getClazzId).orderByAsc(Child::getId);
-        IPage<Child> page = page(new Page<>(pageNum, pageSize), qw);
-        fillClazzName(page.getRecords());
-        fillCompleteness(page.getRecords());
-        return page;
+        return qw;
     }
 
     @Override
@@ -260,6 +275,78 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
                 .registerWriteHandler(new LongestMatchColumnWidthStyleStrategy())
                 .sheet("幼儿档案")
                 .doWrite(sample);
+    }
+
+    // ==================== Excel 导出 ====================
+
+    /** 导出列顺序即表头顺序，与列表展示对齐（列表里的操作列除外） */
+    private static final List<String> EXPORT_HEADERS = List.of(
+            "幼儿姓名", "性别", "出生日期", "所在班级", "家长姓名", "家长电话",
+            "家庭住址", "过敏史", "入园日期", "在园状态", "档案完整度", "待补全项", "建档时间");
+
+    /** 单次导出上限：xlsx 在内存里拼，无上限的话一次导出几万行会把堆撑爆（可用配置覆盖） */
+    @Value("${kids.export.max-rows:5000}")
+    private int exportMaxRows;
+
+    @Override
+    public void exportChildren(String keyword, Long clazzId, Integer status,
+                               Boolean incompleteOnly, OutputStream out) {
+        LambdaQueryWrapper<Child> qw = buildWrapper(keyword, clazzId, status, incompleteOnly);
+        long total = count(qw);
+        if (total == 0) {
+            throw new BizException("当前筛选条件下没有可导出的数据");
+        }
+        if (total > exportMaxRows) {
+            throw new BizException("当前筛选结果共 " + total + " 条，超过单次导出上限 "
+                    + exportMaxRows + " 条，请缩小范围（如先选班级）后再导出");
+        }
+        List<Child> list = list(qw);
+        fillClazzName(list);
+        fillCompleteness(list);
+
+        List<List<Object>> rows = new ArrayList<>(list.size());
+        for (Child c : list) {
+            rows.add(toExportRow(c));
+        }
+        ExcelExportSupport.write(out, "幼儿档案", EXPORT_HEADERS, rows);
+    }
+
+    /** 单行导出数据：字典值翻中文、日期统一 yyyy-MM-dd、空值写空串（不写 null 以免出现 "null"） */
+    private List<Object> toExportRow(Child c) {
+        String missing = ChildCompleteness.missingLabels(c);
+        return Arrays.asList(
+                nz(c.getName()),
+                nz(c.getGender()),
+                dateText(c.getBirthday()),
+                nz(c.getClazzName()),
+                nz(c.getGuardianName()),
+                nz(c.getGuardianPhone()),
+                nz(c.getAddress()),
+                nz(c.getAllergy()),
+                dateText(c.getEnrollDate()),
+                statusText(c.getStatus()),
+                ChildCompleteness.score(c) + "%",
+                missing.isEmpty() ? "已完整" : missing,
+                dateTimeText(c.getCreateTime()));
+    }
+
+    private static String statusText(Integer status) {
+        if (status == null) {
+            return "";
+        }
+        return status == 1 ? "在园" : "离园";
+    }
+
+    private static String dateText(LocalDate d) {
+        return d == null ? "" : d.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    }
+
+    private static String dateTimeText(LocalDateTime t) {
+        return t == null ? "" : t.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+    }
+
+    private static String nz(String s) {
+        return s == null ? "" : s;
     }
 
     /** 逐列校验表头，避免用户用错模板导致数据整列错位却静默导入 */

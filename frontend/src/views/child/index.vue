@@ -6,7 +6,12 @@
     </template>
 
     <template #toolbar>
-      <el-button :icon="Download" @click="downloadTemplate">下载导入模板</el-button>
+      <el-tooltip content="导出当前筛选结果（不是全表）" placement="bottom">
+        <el-button type="primary" plain :icon="Download" :loading="exporting" @click="handleExport">
+          导出 Excel
+        </el-button>
+      </el-tooltip>
+      <el-button :icon="Document" @click="downloadTemplate">下载导入模板</el-button>
       <el-upload
         :show-file-list="false"
         :auto-upload="false"
@@ -75,9 +80,16 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Download, Upload } from '@element-plus/icons-vue'
+import { Download, Document, Upload } from '@element-plus/icons-vue'
 import CrudPage from '@/components/CrudPage.vue'
-import { childApi, clazzApi, importChildren, childImportTemplate, childHistory } from '@/api'
+import {
+  childApi,
+  clazzApi,
+  exportChildren,
+  importChildren,
+  childImportTemplate,
+  childHistory
+} from '@/api'
 
 const crud = ref()
 const clazzList = ref([])
@@ -110,15 +122,43 @@ const summaryText = computed(() => {
   return `共 ${r.total || 0} 行，成功 ${r.successCount || 0} 条，失败 ${r.failCount || 0} 条`
 })
 
+/** 触发浏览器下载：模板与导出共用 */
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function fileStamp() {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`
+}
+
+// Excel 导出：跟随列表当前筛选条件
+const exporting = ref(false)
+
+async function handleExport() {
+  exporting.value = true
+  try {
+    const params = (crud.value && crud.value.getQuery()) || {}
+    const blob = await exportChildren(params)
+    saveBlob(blob, `幼儿档案_${fileStamp()}.xlsx`)
+    ElMessage.success('导出成功')
+  } catch (e) {
+    // 错误提示由请求拦截器统一弹出
+  } finally {
+    exporting.value = false
+  }
+}
+
 async function downloadTemplate() {
   try {
     const blob = await childImportTemplate()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = '幼儿档案导入模板.xlsx'
-    a.click()
-    URL.revokeObjectURL(url)
+    saveBlob(blob, '幼儿档案导入模板.xlsx')
   } catch (e) {
     // 错误提示由请求拦截器统一弹出
   }
