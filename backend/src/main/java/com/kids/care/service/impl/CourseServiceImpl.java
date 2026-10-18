@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.kids.care.common.BizException;
 import com.kids.care.entity.Course;
 import com.kids.care.mapper.CourseMapper;
 import com.kids.care.service.ICourseService;
@@ -31,6 +32,46 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
 
     private final ClazzMapper clazzMapper;
     private final TeacherMapper teacherMapper;
+
+    @Override
+    public boolean save(Course entity) {
+        checkConflict(entity);
+        return super.save(entity);
+    }
+
+    @Override
+    public boolean updateById(Course entity) {
+        checkConflict(entity);
+        return super.updateById(entity);
+    }
+
+    /** 同一教师同一天的时间段不允许重叠（修改时排除自身） */
+    private void checkConflict(Course entity) {
+        if (entity.getTeacherId() == null || entity.getCourseDate() == null
+                || !StringUtils.hasText(entity.getStartTime()) || !StringUtils.hasText(entity.getEndTime())) {
+            return;
+        }
+        if (entity.getStartTime().compareTo(entity.getEndTime()) >= 0) {
+            throw new BizException("开始时间不能晚于或等于结束时间");
+        }
+        List<Course> sameDay = list(new LambdaQueryWrapper<Course>()
+                .eq(Course::getTeacherId, entity.getTeacherId())
+                .eq(Course::getCourseDate, entity.getCourseDate())
+                .ne(entity.getId() != null, Course::getId, entity.getId()));
+        for (Course other : sameDay) {
+            if (!StringUtils.hasText(other.getStartTime()) || !StringUtils.hasText(other.getEndTime())) {
+                continue;
+            }
+            boolean overlap = entity.getStartTime().compareTo(other.getEndTime()) < 0
+                    && other.getStartTime().compareTo(entity.getEndTime()) < 0;
+            if (overlap) {
+                throw new BizException("该教师在 " + entity.getCourseDate() + " "
+                        + other.getStartTime() + "~" + other.getEndTime()
+                        + " 已安排课程【" + other.getTitle() + "】，时间冲突");
+            }
+        }
+    }
+
     @Override
     public IPage<Course> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId,
                                    Long teacherId, String courseDate) {
