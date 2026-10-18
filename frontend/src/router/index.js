@@ -51,7 +51,7 @@ const routes = [
         path: 'teacher',
         name: 'teacher',
         component: () => import('@/views/teacher/index.vue'),
-        meta: { title: '教职工管理', icon: 'Avatar', roles: ['admin', 'teacher'] }
+        meta: { title: '教职工管理', icon: 'Avatar', roles: ['admin'] }
       },
       {
         path: 'course',
@@ -63,7 +63,7 @@ const routes = [
         path: 'fee',
         name: 'fee',
         component: () => import('@/views/fee/index.vue'),
-        meta: { title: '收费管理', icon: 'Money', roles: ['admin'] }
+        meta: { title: '收费管理', icon: 'Money', roles: ['admin', 'teacher'] }
       },
       {
         path: 'leave',

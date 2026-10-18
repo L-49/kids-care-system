@@ -105,7 +105,7 @@ const allMenus = [
     children: [
       { path: '/child', title: '幼儿档案', icon: 'User', roles: [ADMIN, TEACHER] },
       { path: '/clazz', title: '班级管理', icon: 'School', roles: [ADMIN, TEACHER] },
-      { path: '/teacher', title: '教职工管理', icon: 'Avatar', roles: [ADMIN, TEACHER] }
+      { path: '/teacher', title: '教职工管理', icon: 'Avatar', roles: [ADMIN] }
     ]
   },
   {
@@ -133,7 +133,7 @@ const allMenus = [
     title: '财务与统计',
     icon: 'Coin',
     children: [
-      { path: '/fee', title: '收费管理', icon: 'Money', roles: [ADMIN] },
+      { path: '/fee', title: '收费管理', icon: 'Money', roles: [ADMIN, TEACHER] },
       { path: '/report', title: '统计报表', icon: 'PieChart', roles: [ADMIN] }
     ]
   },

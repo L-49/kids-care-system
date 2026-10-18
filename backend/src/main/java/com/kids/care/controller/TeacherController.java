@@ -22,7 +22,8 @@ public class TeacherController {
 
     private final ITeacherService teacherService;
 
-    /** 分页查询 */
+    /** 分页查询（教职工管理页专用，仅园长可管理人事档案；班级/课程页请用 /all 取下拉数据） */
+    @RequireRole({Roles.ADMIN})
     @GetMapping("/page")
     public Result<List<Teacher>> page(@RequestParam(defaultValue = "1") int pageNum,
                                       @RequestParam(defaultValue = "10") int pageSize,

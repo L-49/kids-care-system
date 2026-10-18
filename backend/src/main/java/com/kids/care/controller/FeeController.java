@@ -22,8 +22,8 @@ public class FeeController {
 
     private final IFeeService feeService;
 
-    /** 分页查询：家长只能看到自己孩子的费用 */
-    @RequireRole({Roles.ADMIN, Roles.PARENT})
+    /** 分页查询：家长只能看到自己孩子的费用；教师可查看全部以便代收 */
+    @RequireRole({Roles.ADMIN, Roles.TEACHER, Roles.PARENT})
     @GetMapping("/page")
     public Result<List<Fee>> page(@RequestParam(defaultValue = "1") int pageNum,
                                   @RequestParam(defaultValue = "10") int pageSize,
@@ -36,21 +36,21 @@ public class FeeController {
     }
 
     /** 全部列表（下拉框用） */
-    @RequireRole({Roles.ADMIN})
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
     @GetMapping("/all")
     public Result<List<Fee>> all() {
         return Result.ok(feeService.listAll());
     }
 
     /** 详情 */
-    @RequireRole({Roles.ADMIN})
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
     @GetMapping("/{id}")
     public Result<Fee> info(@PathVariable Long id) {
         return Result.ok(feeService.getById(id));
     }
 
     /** 新增 */
-    @RequireRole({Roles.ADMIN})
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
     @PostMapping
     public Result<Void> add(@RequestBody Fee entity) {
         feeService.save(entity);
@@ -58,7 +58,7 @@ public class FeeController {
     }
 
     /** 修改 */
-    @RequireRole({Roles.ADMIN})
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
     @PutMapping
     public Result<Void> edit(@RequestBody Fee entity) {
         feeService.updateById(entity);
@@ -66,7 +66,7 @@ public class FeeController {
     }
 
     /** 删除（支持批量） */
-    @RequireRole({Roles.ADMIN})
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
     @DeleteMapping("/{ids}")
     public Result<Void> remove(@PathVariable List<Long> ids) {
         feeService.removeByIds(ids);
@@ -74,7 +74,7 @@ public class FeeController {
     }
 
     /** 缴费登记 */
-    @RequireRole({Roles.ADMIN})
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
     @PutMapping("/pay/{id}")
     public Result<Void> pay(@PathVariable Long id) {
         feeService.pay(id);
