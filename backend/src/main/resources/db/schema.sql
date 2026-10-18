@@ -10,7 +10,7 @@ USE kids_care;
 CREATE TABLE sys_user (
     id          BIGINT PRIMARY KEY AUTO_INCREMENT,
     username    VARCHAR(50)  NOT NULL UNIQUE COMMENT '登录名',
-    password    VARCHAR(64)  NOT NULL COMMENT '密码（MD5）',
+    password    VARCHAR(200) NOT NULL COMMENT '口令摘要（PBKDF2，兼容历史 MD5）',
     real_name   VARCHAR(50)  NOT NULL COMMENT '姓名',
     role        VARCHAR(20)  NOT NULL COMMENT '角色：admin/teacher/parent',
     phone       VARCHAR(20),
@@ -191,6 +191,7 @@ CREATE TABLE sys_log (
     ip          VARCHAR(50) COMMENT '操作IP',
     cost_time   BIGINT COMMENT '耗时(毫秒)',
     status      INT COMMENT 'HTTP状态码',
+    error_msg   VARCHAR(300) COMMENT '失败原因',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) COMMENT '操作日志';
 
