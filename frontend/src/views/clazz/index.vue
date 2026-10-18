@@ -77,7 +77,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { OfficeBuilding, UserFilled, DataAnalysis, WarningFilled } from '@element-plus/icons-vue'
 import CrudPage from '@/components/CrudPage.vue'
-import { clazzApi, teacherApi, childApi } from '@/api'
+import { clazzApi, teacherApi, childApi, transferChild as transferChildApi } from '@/api'
 
 const crud = ref()
 const teacherList = ref([])
@@ -217,14 +217,8 @@ async function submitTransfer() {
   }
   transferSaving.value = true
   try {
-    let full = null
-    try {
-      full = (await childApi.detail(transferChild.value.id)).data
-    } catch (e) {
-      full = null
-    }
-    full = { ...(full || {}), ...transferChild.value, clazzId: transferForm.newClazzId }
-    await childApi.edit(full)
+    // 走后端调班接口：校验目标班级存在、未满员、幼儿在园，并写变更留痕
+    await transferChildApi(transferChild.value.id, transferForm.newClazzId)
     ElMessage.success('调班成功')
     transferVisible.value = false
     openChildren({ id: currentClazzId.value, name: currentClazzName.value })

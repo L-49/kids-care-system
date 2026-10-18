@@ -23,6 +23,8 @@ export const authApi = {
 export const teacherApi = crudApi('/teacher')
 export const clazzApi = crudApi('/clazz')
 export const childApi = crudApi('/child')
+// 调班：后端校验目标班级是否存在、是否满员、幼儿是否在园
+export const transferChild = (id, clazzId) => request.post(`/child/${id}/transfer`, { clazzId })
 export const attendanceApi = crudApi('/attendance')
 export const courseApi = crudApi('/course')
 export const feeApi = crudApi('/fee')

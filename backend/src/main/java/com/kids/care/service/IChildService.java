@@ -35,6 +35,9 @@ public interface IChildService extends IService<Child> {
     /** 修改档案（校验班级存在） */
     void updateChild(Child entity);
 
+    /** 调班：校验目标班级存在、未满员、幼儿在园，并写变更留痕 */
+    void transfer(Long childId, Long targetClazzId);
+
     /** Excel 批量导入：逐行校验，成功的入库，失败的返回行号与原因 */
     ImportResult importChildren(MultipartFile file);
 

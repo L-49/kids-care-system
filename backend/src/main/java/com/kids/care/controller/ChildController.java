@@ -141,6 +141,14 @@ public class ChildController {
         return Result.ok();
     }
 
+    /** 调班：校验目标班级容量，避免超额 */
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
+    @PostMapping("/{id}/transfer")
+    public Result<Void> transfer(@PathVariable Long id, @RequestBody Map<String, Long> body) {
+        childService.transfer(id, body == null ? null : body.get("clazzId"));
+        return Result.ok();
+    }
+
     /** 删除（支持批量） */
     @RequireRole({Roles.ADMIN})
     @DeleteMapping("/{ids}")

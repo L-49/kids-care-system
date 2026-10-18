@@ -214,6 +214,51 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
         logs.forEach(changeLogMapper::insert);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void transfer(Long childId, Long targetClazzId) {
+        Child child = getById(childId);
+        if (child == null) {
+            throw new BizException("幼儿不存在或已删除");
+        }
+        if (child.getStatus() == null || child.getStatus() != 1) {
+            throw new BizException("幼儿【" + child.getName() + "】已离园，不能调班");
+        }
+        if (targetClazzId == null) {
+            throw new BizException("请选择要调入的班级");
+        }
+        if (targetClazzId.equals(child.getClazzId())) {
+            throw new BizException("幼儿已在该班级中，无需调班");
+        }
+        Clazz target = clazzMapper.selectById(targetClazzId);
+        if (target == null) {
+            throw new BizException("目标班级不存在或已删除");
+        }
+        long current = count(new LambdaQueryWrapper<Child>()
+                .eq(Child::getClazzId, targetClazzId)
+                .eq(Child::getStatus, 1));
+        if (target.getCapacity() != null && current >= target.getCapacity()) {
+            throw new BizException("班级【" + target.getName() + "】已满 " + target.getCapacity()
+                    + " 人，无法调入，请先调整容量或选择其他班级");
+        }
+        Long fromClazzId = child.getClazzId();
+        Child update = new Child();
+        update.setId(childId);
+        update.setClazzId(targetClazzId);
+        updateById(update);
+        // 调班留痕：班级是档案的关键字段，家长与教师都关心"谁把孩子调到了哪个班"
+        ChildChangeLog log = new ChildChangeLog();
+        log.setChildId(childId);
+        log.setChildName(child.getName());
+        log.setChangeType(ChildChangeLog.TYPE_UPDATE);
+        log.setFieldName("clazzId");
+        log.setFieldLabel("所在班级（调班）");
+        log.setOldValue(clazzName(fromClazzId));
+        log.setNewValue(target.getName());
+        log.setOperator(UserContext.displayName());
+        changeLogMapper.insert(log);
+    }
+
     /** 统一整理入参：去空格、补默认性别、校验班级存在 */
     private void normalize(Child entity) {
         if (StringUtils.hasText(entity.getName())) {
