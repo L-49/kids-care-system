@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * 教职工 接口
+ * 教职工 接口（教师可查看通讯录，仅园长可维护）
  */
 @RestController
 @RequestMapping("/api/teacher")
@@ -22,10 +22,10 @@ public class TeacherController {
     /** 分页查询 */
     @GetMapping("/page")
     public Result<List<Teacher>> page(@RequestParam(defaultValue = "1") int pageNum,
-                                         @RequestParam(defaultValue = "10") int pageSize,
-                                         @RequestParam(required = false) String keyword,
-                                         @RequestParam(required = false) String role,
-                                         @RequestParam(required = false) Integer status) {
+                                      @RequestParam(defaultValue = "10") int pageSize,
+                                      @RequestParam(required = false) String keyword,
+                                      @RequestParam(required = false) String role,
+                                      @RequestParam(required = false) Integer status) {
         IPage<Teacher> page = teacherService.pageQuery(pageNum, pageSize, keyword, role, status);
         return Result.page(page.getRecords(), page.getTotal());
     }
@@ -42,21 +42,21 @@ public class TeacherController {
         return Result.ok(teacherService.getById(id));
     }
 
-    /** 新增 */
+    /** 新增（仅园长） */
     @PostMapping
     public Result<Void> add(@RequestBody Teacher entity) {
         teacherService.save(entity);
         return Result.ok();
     }
 
-    /** 修改 */
+    /** 修改（仅园长） */
     @PutMapping
     public Result<Void> edit(@RequestBody Teacher entity) {
         teacherService.updateById(entity);
         return Result.ok();
     }
 
-    /** 删除（支持批量） */
+    /** 删除（仅园长） */
     @DeleteMapping("/{ids}")
     public Result<Void> remove(@PathVariable List<Long> ids) {
         teacherService.removeByIds(ids);

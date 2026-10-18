@@ -22,8 +22,8 @@ public class ClazzController {
     /** 分页查询 */
     @GetMapping("/page")
     public Result<List<Clazz>> page(@RequestParam(defaultValue = "1") int pageNum,
-                                         @RequestParam(defaultValue = "10") int pageSize,
-                                         @RequestParam(required = false) String keyword) {
+                                    @RequestParam(defaultValue = "10") int pageSize,
+                                    @RequestParam(required = false) String keyword) {
         IPage<Clazz> page = clazzService.pageQuery(pageNum, pageSize, keyword);
         return Result.page(page.getRecords(), page.getTotal());
     }
@@ -40,21 +40,21 @@ public class ClazzController {
         return Result.ok(clazzService.getById(id));
     }
 
-    /** 新增 */
+    /** 新增（仅园长） */
     @PostMapping
     public Result<Void> add(@RequestBody Clazz entity) {
         clazzService.save(entity);
         return Result.ok();
     }
 
-    /** 修改 */
+    /** 修改（仅园长） */
     @PutMapping
     public Result<Void> edit(@RequestBody Clazz entity) {
         clazzService.updateById(entity);
         return Result.ok();
     }
 
-    /** 删除（支持批量） */
+    /** 删除（仅园长） */
     @DeleteMapping("/{ids}")
     public Result<Void> remove(@PathVariable List<Long> ids) {
         clazzService.removeByIds(ids);

@@ -37,6 +37,13 @@ public class Clazz {
     /** 班主任ID */
     private Long headTeacherId;
 
+    /** 开班日期 */
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate openDate;
+
+    /** 班级特色 */
+    private String remark;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 
@@ -52,4 +59,8 @@ public class Clazz {
     /** 在园幼儿数 */
     @TableField(exist = false)
     private Long childCount;
+
+    /** 满员状态：0正常 1满员 2超载（服务层派生，非数据库字段） */
+    @TableField(exist = false)
+    private Integer fullStatus;
 }

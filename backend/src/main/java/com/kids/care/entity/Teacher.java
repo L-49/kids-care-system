@@ -41,6 +41,24 @@ public class Teacher {
     /** 状态：1在职 0离职 */
     private Integer status;
 
+    /** 身份证号 */
+    private String idCard;
+
+    /** 学历 */
+    private String education;
+
+    /** 职称 */
+    private String title;
+
+    /** 家庭住址 */
+    private String address;
+
+    /** 紧急联系人 */
+    private String emergencyContact;
+
+    /** 紧急联系电话 */
+    private String emergencyPhone;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 

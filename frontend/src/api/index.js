@@ -30,6 +30,17 @@ export const leaveApi = crudApi('/leave')
 export const noticeApi = crudApi('/notice')
 export const menuApi = crudApi('/menu')
 export const foodApi = crudApi('/food')
+
+// 食谱：周视图 / 复制上周
+export const menuWeek = (weekStart) => request.get('/menu/week', { params: { weekStart } })
+export const copyLastWeekMenu = (weekStart) =>
+  request.post('/menu/copy-last-week', null, { params: { weekStart } })
+
+// 食材出入库
+export const foodOverview = () => request.get('/food/overview')
+export const stockChange = (id, data) => request.post(`/food/${id}/stock`, data)
+export const stockRecords = (params) => request.get('/food/record/page', { params })
+
 export const dictApi = crudApi('/dict')
 // 按类型取字典项（下拉框用）
 dictApi.type = (dictType) => request.get(`/dict/type/${dictType}`)

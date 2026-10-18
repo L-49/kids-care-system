@@ -7,10 +7,11 @@ import com.kids.care.service.IMenuPlanService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
- * 每周食谱 接口
+ * 每周食谱 接口（三端可查看，园长/教师可维护）
  */
 @RestController
 @RequestMapping("/api/menu")
@@ -22,10 +23,10 @@ public class MenuPlanController {
     /** 分页查询 */
     @GetMapping("/page")
     public Result<List<MenuPlan>> page(@RequestParam(defaultValue = "1") int pageNum,
-                                         @RequestParam(defaultValue = "10") int pageSize,
-                                         @RequestParam(required = false) String keyword,
-                                         @RequestParam(required = false) String mealType,
-                                         @RequestParam(required = false) String menuDate) {
+                                       @RequestParam(defaultValue = "10") int pageSize,
+                                       @RequestParam(required = false) String keyword,
+                                       @RequestParam(required = false) String mealType,
+                                       @RequestParam(required = false) String menuDate) {
         IPage<MenuPlan> page = menuPlanService.pageQuery(pageNum, pageSize, keyword, mealType, menuDate);
         return Result.page(page.getRecords(), page.getTotal());
     }
@@ -34,6 +35,18 @@ public class MenuPlanController {
     @GetMapping("/all")
     public Result<List<MenuPlan>> all() {
         return Result.ok(menuPlanService.listAll());
+    }
+
+    /** 周视图：weekStart 为周一，如 2026-10-12 */
+    @GetMapping("/week")
+    public Result<List<MenuPlan>> week(@RequestParam String weekStart) {
+        return Result.ok(menuPlanService.listWeek(LocalDate.parse(weekStart)));
+    }
+
+    /** 一键复制上周食谱到本周，返回复制条数 */
+    @PostMapping("/copy-last-week")
+    public Result<Integer> copyLastWeek(@RequestParam String weekStart) {
+        return Result.ok(menuPlanService.copyFromLastWeek(LocalDate.parse(weekStart)));
     }
 
     /** 详情 */

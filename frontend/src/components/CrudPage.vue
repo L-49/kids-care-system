@@ -50,9 +50,9 @@
       </el-form-item>
     </el-form>
 
-    <!-- 工具栏 -->
+    <!-- 工具栏（只读模式下不显示新增按钮） -->
     <div class="table-toolbar">
-      <div class="left">
+      <div class="left" v-if="!config.readonly">
         <el-button type="primary" :icon="Plus" @click="openAdd">新增{{ config.title }}</el-button>
         <slot name="toolbar" />
       </div>
@@ -88,7 +88,13 @@
           </slot>
         </template>
       </el-table-column>
-      <el-table-column label="操作" :width="actionWidth" fixed="right" align="center">
+      <el-table-column
+        v-if="!config.readonly"
+        label="操作"
+        :width="actionWidth"
+        fixed="right"
+        align="center"
+      >
         <template #default="{ row }">
           <el-button
             v-for="a in visibleActions(row)"
