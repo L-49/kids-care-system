@@ -7,6 +7,7 @@ import com.kids.care.common.Roles;
 import com.kids.care.entity.Clazz;
 import com.kids.care.service.IClazzService;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -46,7 +47,7 @@ public class ClazzController {
     /** 新增（仅园长） */
     @RequireRole({Roles.ADMIN})
     @PostMapping
-    public Result<Void> add(@RequestBody Clazz entity) {
+    public Result<Void> add(@Valid @RequestBody Clazz entity) {
         clazzService.save(entity);
         return Result.ok();
     }
@@ -54,7 +55,7 @@ public class ClazzController {
     /** 修改（仅园长） */
     @RequireRole({Roles.ADMIN})
     @PutMapping
-    public Result<Void> edit(@RequestBody Clazz entity) {
+    public Result<Void> edit(@Valid @RequestBody Clazz entity) {
         clazzService.updateById(entity);
         return Result.ok();
     }

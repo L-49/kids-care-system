@@ -20,16 +20,16 @@ public class LogInterceptor implements HandlerInterceptor {
 
     private static final Map<String, String> MODULE_NAME = Map.ofEntries(
             Map.entry("/api/child", "幼儿档案"),
-            Map.entry("/api/clazz", "班级管理"),
-            Map.entry("/api/attendance", "考勤管理"),
-            Map.entry("/api/teacher", "教职工管理"),
-            Map.entry("/api/course", "课程活动"),
-            Map.entry("/api/fee", "收费管理"),
-            Map.entry("/api/leave", "请假审批"),
-            Map.entry("/api/notice", "通知公告"),
-            Map.entry("/api/menu", "每周食谱"),
-            Map.entry("/api/food", "食材库存"),
-            Map.entry("/api/dict", "数据字典"),
+            Map.entry("/api/clazz", "班级"),
+            Map.entry("/api/attendance", "考勤记录"),
+            Map.entry("/api/teacher", "教职工"),
+            Map.entry("/api/course", "课程"),
+            Map.entry("/api/fee", "收费记录"),
+            Map.entry("/api/leave", "请假单"),
+            Map.entry("/api/notice", "公告"),
+            Map.entry("/api/menu", "食谱"),
+            Map.entry("/api/food", "食材"),
+            Map.entry("/api/dict", "字典项"),
             Map.entry("/api/auth", "登录认证"),
             Map.entry("/api/system", "系统设置")
     );
@@ -107,13 +107,28 @@ public class LogInterceptor implements HandlerInterceptor {
             return "退出登录";
         }
         if (uri.contains("/pay")) {
-            return "缴费登记（" + module + "）";
+            return "缴费登记";
         }
         if (uri.contains("/approve")) {
-            return "审批处理（" + module + "）";
+            return "审批请假单";
         }
         if (uri.contains("/transfer")) {
-            return "调班（" + module + "）";
+            return "调班";
+        }
+        if (uri.contains("/stock")) {
+            return "食材出入库";
+        }
+        if (uri.contains("/copy-last-week")) {
+            return "复制上周食谱";
+        }
+        if (uri.contains("/publish")) {
+            return "发布公告";
+        }
+        if (uri.contains("/revoke")) {
+            return "撤回公告";
+        }
+        if (uri.contains("/import")) {
+            return "导入幼儿档案";
         }
         if (uri.contains("/backup")) {
             return "数据备份";

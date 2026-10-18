@@ -7,6 +7,7 @@ import com.kids.care.common.Roles;
 import com.kids.care.entity.Teacher;
 import com.kids.care.service.ITeacherService;
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -49,7 +50,7 @@ public class TeacherController {
     /** 新增（仅园长） */
     @RequireRole({Roles.ADMIN})
     @PostMapping
-    public Result<Void> add(@RequestBody Teacher entity) {
+    public Result<Void> add(@Valid @RequestBody Teacher entity) {
         teacherService.save(entity);
         return Result.ok();
     }
@@ -57,7 +58,7 @@ public class TeacherController {
     /** 修改（仅园长） */
     @RequireRole({Roles.ADMIN})
     @PutMapping
-    public Result<Void> edit(@RequestBody Teacher entity) {
+    public Result<Void> edit(@Valid @RequestBody Teacher entity) {
         teacherService.updateById(entity);
         return Result.ok();
     }
