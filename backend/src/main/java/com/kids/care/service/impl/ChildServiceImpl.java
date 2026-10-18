@@ -11,10 +11,17 @@ import com.kids.care.common.ChildCompleteness;
 import com.kids.care.common.ExcelExportSupport;
 import com.kids.care.common.UserContext;
 import com.kids.care.dto.ImportResult;
+import com.kids.care.entity.Attendance;
 import com.kids.care.entity.Child;
 import com.kids.care.entity.ChildChangeLog;
+import com.kids.care.entity.Fee;
+import com.kids.care.entity.LeaveRequest;
+import com.kids.care.mapper.AttendanceMapper;
 import com.kids.care.mapper.ChildChangeLogMapper;
 import com.kids.care.mapper.ChildMapper;
+import com.kids.care.mapper.FeeMapper;
+import com.kids.care.mapper.LeaveRequestMapper;
+import com.kids.care.mapper.StatMapper;
 import com.kids.care.service.IChildService;
 import com.kids.care.entity.Clazz;
 import com.kids.care.mapper.ClazzMapper;
@@ -27,6 +34,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -34,6 +42,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -53,6 +62,48 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
 
     private final ClazzMapper clazzMapper;
     private final ChildChangeLogMapper changeLogMapper;
+    private final AttendanceMapper attendanceMapper;
+    private final FeeMapper feeMapper;
+    private final LeaveRequestMapper leaveRequestMapper;
+    private final StatMapper statMapper;
+
+    @Override
+    public Map<String, Object> myChildDashboard(Long childId) {
+        Child child = getById(childId);
+        if (child == null) {
+            throw new BizException("未找到绑定的幼儿档案，请联系幼儿园核实");
+        }
+        fillClazzName(List.of(child));
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("child", child);
+
+        Attendance today = attendanceMapper.selectOne(new LambdaQueryWrapper<Attendance>()
+                .eq(Attendance::getChildId, childId)
+                .eq(Attendance::getAttDate, LocalDate.now())
+                .last("limit 1"));
+        data.put("todayAttendance", today);
+
+        data.put("attendanceDays", statMapper.attendanceDaysOfChild(childId));
+
+        List<Fee> fees = feeMapper.selectList(new LambdaQueryWrapper<Fee>()
+                .eq(Fee::getChildId, childId)
+                .orderByDesc(Fee::getFeeMonth)
+                .last("limit 12"));
+        BigDecimal unpaid = fees.stream()
+                .filter(f -> f.getPayStatus() != null && f.getPayStatus() == 0)
+                .map(Fee::getAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        data.put("fees", fees);
+        data.put("unpaidAmount", unpaid);
+
+        data.put("leaves", leaveRequestMapper.selectList(new LambdaQueryWrapper<LeaveRequest>()
+                .eq(LeaveRequest::getChildId, childId)
+                .orderByDesc(LeaveRequest::getId)
+                .last("limit 10")));
+        return data;
+    }
 
     @Override
     public IPage<Child> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId,

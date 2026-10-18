@@ -48,7 +48,7 @@ public class AuthController {
             throw new BizException("账号已被停用，请联系管理员");
         }
         TokenStore.LoginUser loginUser = new TokenStore.LoginUser(
-                user.getId(), user.getUsername(), user.getRealName(), user.getRole());
+                user.getId(), user.getUsername(), user.getRealName(), user.getRole(), user.getChildId());
         String token = tokenStore.create(loginUser);
 
         Map<String, Object> data = new HashMap<>();

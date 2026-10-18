@@ -1,7 +1,9 @@
 package com.kids.care.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.kids.care.common.RequireRole;
 import com.kids.care.common.Result;
+import com.kids.care.common.Roles;
 import com.kids.care.entity.SysLog;
 import com.kids.care.service.ISysLogService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/log")
 @RequiredArgsConstructor
+@RequireRole({Roles.ADMIN})
 public class SysLogController {
 
     private final ISysLogService sysLogService;

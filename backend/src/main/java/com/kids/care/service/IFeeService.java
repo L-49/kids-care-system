@@ -11,8 +11,9 @@ import java.util.List;
  */
 public interface IFeeService extends IService<Fee> {
 
-    /** 分页查询 */
-    IPage<Fee> pageQuery(int pageNum, int pageSize, String keyword, String feeMonth, Integer payStatus);
+    /** 分页查询（childId 非空时只查该幼儿，用于家长数据隔离） */
+    IPage<Fee> pageQuery(int pageNum, int pageSize, String keyword, String feeMonth,
+                         Integer payStatus, Long childId);
 
     /** 全部列表（用于下拉框） */
     List<Fee> listAll();

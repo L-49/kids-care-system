@@ -4,17 +4,18 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.kids.care.entity.Fee;
-import com.kids.care.mapper.FeeMapper;
-import com.kids.care.service.IFeeService;
 import com.kids.care.common.BizException;
 import com.kids.care.entity.Child;
+import com.kids.care.entity.Fee;
 import com.kids.care.mapper.ChildMapper;
-import java.time.LocalDateTime;
+import com.kids.care.mapper.FeeMapper;
+import com.kids.care.service.IFeeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,10 +30,15 @@ import java.util.stream.Collectors;
 public class FeeServiceImpl extends ServiceImpl<FeeMapper, Fee> implements IFeeService {
 
     private final ChildMapper childMapper;
+
     @Override
-    public IPage<Fee> pageQuery(int pageNum, int pageSize, String keyword, String feeMonth, Integer payStatus) {
+    public IPage<Fee> pageQuery(int pageNum, int pageSize, String keyword, String feeMonth,
+                                Integer payStatus, Long childId) {
         LambdaQueryWrapper<Fee> qw = new LambdaQueryWrapper<>();
-        if (StringUtils.hasText(keyword)) {
+        if (childId != null) {
+            // 家长端：只允许查自己孩子的账单
+            qw.eq(Fee::getChildId, childId);
+        } else if (StringUtils.hasText(keyword)) {
             List<Long> childIds = childMapper.selectList(new LambdaQueryWrapper<Child>()
                             .select(Child::getId).like(Child::getName, keyword))
                     .stream().map(Child::getId).toList();
@@ -58,6 +64,25 @@ public class FeeServiceImpl extends ServiceImpl<FeeMapper, Fee> implements IFeeS
         List<Fee> list = list(new LambdaQueryWrapper<Fee>().orderByDesc(Fee::getId).last("limit 200"));
         fillChildName(list);
         return list;
+    }
+
+    /** 新增收费：校验幼儿存在、金额为正、月份格式 */
+    @Override
+    public boolean save(Fee entity) {
+        if (entity.getChildId() == null || childMapper.selectById(entity.getChildId()) == null) {
+            throw new BizException("请选择有效的幼儿");
+        }
+        if (entity.getAmount() == null || entity.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BizException("金额必须大于 0");
+        }
+        if (!StringUtils.hasText(entity.getFeeMonth())
+                || !entity.getFeeMonth().matches("\\d{4}-\\d{2}")) {
+            throw new BizException("所属月份格式应为 yyyy-MM");
+        }
+        if (entity.getPayStatus() == null) {
+            entity.setPayStatus(0);
+        }
+        return super.save(entity);
     }
 
     /** 缴费登记 */

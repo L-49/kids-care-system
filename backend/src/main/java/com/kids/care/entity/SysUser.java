@@ -33,6 +33,9 @@ public class SysUser {
     /** 角色：admin/teacher/parent */
     private String role;
 
+    /** 家长账号绑定的幼儿ID，非家长角色为 null */
+    private Long childId;
+
     /** 手机号 */
     private String phone;
 

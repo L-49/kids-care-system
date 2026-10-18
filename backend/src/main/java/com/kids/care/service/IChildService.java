@@ -9,11 +9,15 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 幼儿档案 业务接口
  */
 public interface IChildService extends IService<Child> {
+
+    /** 家长端"我的孩子"聚合数据：档案 + 今日考勤 + 近 7 天趋势 + 待缴费用 + 请假记录 */
+    Map<String, Object> myChildDashboard(Long childId);
 
     /** 分页查询（incompleteOnly=true 时只返回完整度未满 100 的档案） */
     IPage<Child> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId,

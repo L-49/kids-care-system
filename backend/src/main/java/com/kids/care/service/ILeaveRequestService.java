@@ -11,8 +11,8 @@ import java.util.List;
  */
 public interface ILeaveRequestService extends IService<LeaveRequest> {
 
-    /** 分页查询 */
-    IPage<LeaveRequest> pageQuery(int pageNum, int pageSize, String keyword, Integer status);
+    /** 分页查询（childId 非空时只查该幼儿，用于家长数据隔离） */
+    IPage<LeaveRequest> pageQuery(int pageNum, int pageSize, String keyword, Integer status, Long childId);
 
     /** 全部列表（用于下拉框） */
     List<LeaveRequest> listAll();

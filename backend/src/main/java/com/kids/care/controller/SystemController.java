@@ -2,7 +2,9 @@ package com.kids.care.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kids.care.common.BizException;
+import com.kids.care.common.RequireRole;
 import com.kids.care.common.Result;
+import com.kids.care.common.Roles;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -32,6 +34,7 @@ import java.util.stream.Stream;
 @RestController
 @RequestMapping("/api/system")
 @RequiredArgsConstructor
+@RequireRole({Roles.ADMIN})
 public class SystemController {
 
     private static final Path BACKUP_DIR = Paths.get("backups");

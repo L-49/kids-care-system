@@ -1,7 +1,9 @@
 package com.kids.care.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.kids.care.common.RequireRole;
 import com.kids.care.common.Result;
+import com.kids.care.common.Roles;
 import com.kids.care.entity.Clazz;
 import com.kids.care.service.IClazzService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/clazz")
 @RequiredArgsConstructor
+@RequireRole({Roles.ADMIN, Roles.TEACHER})
 public class ClazzController {
 
     private final IClazzService clazzService;
@@ -41,6 +44,7 @@ public class ClazzController {
     }
 
     /** 新增（仅园长） */
+    @RequireRole({Roles.ADMIN})
     @PostMapping
     public Result<Void> add(@RequestBody Clazz entity) {
         clazzService.save(entity);
@@ -48,6 +52,7 @@ public class ClazzController {
     }
 
     /** 修改（仅园长） */
+    @RequireRole({Roles.ADMIN})
     @PutMapping
     public Result<Void> edit(@RequestBody Clazz entity) {
         clazzService.updateById(entity);
@@ -55,6 +60,7 @@ public class ClazzController {
     }
 
     /** 删除（仅园长） */
+    @RequireRole({Roles.ADMIN})
     @DeleteMapping("/{ids}")
     public Result<Void> remove(@PathVariable List<Long> ids) {
         clazzService.removeByIds(ids);

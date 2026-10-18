@@ -5,14 +5,35 @@
         <span class="dot">🌱</span>
         <span class="txt">阳光幼儿园</span>
       </div>
-      <el-menu :default-active="activePath" router class="menu" background-color="#1f2d3d"
-               text-color="#bfcbd9" active-text-color="#ffd04b">
-        <el-menu-item-group v-for="g in menus" :key="g.title" :title="g.title">
-          <el-menu-item v-for="m in g.items" :key="m.path" :index="m.path">
+      <el-menu
+        ref="menuRef"
+        :default-active="activePath"
+        :default-openeds="openedKeys"
+        router
+        unique-opened
+        class="menu"
+        background-color="#1f2d3d"
+        text-color="#bfcbd9"
+        active-text-color="#ffd04b"
+      >
+        <template v-for="m in menus" :key="m.key">
+          <!-- 只有一个可用子项时直接渲染为一级菜单，避免出现"一级里套一个二级" -->
+          <el-menu-item v-if="!m.children" :index="m.path">
             <el-icon><component :is="m.icon" /></el-icon>
             <span>{{ m.title }}</span>
           </el-menu-item>
-        </el-menu-item-group>
+
+          <el-sub-menu v-else :index="m.key">
+            <template #title>
+              <el-icon><component :is="m.icon" /></el-icon>
+              <span>{{ m.title }}</span>
+            </template>
+            <el-menu-item v-for="c in m.children" :key="c.path" :index="c.path">
+              <el-icon><component :is="c.icon" /></el-icon>
+              <span>{{ c.title }}</span>
+            </el-menu-item>
+          </el-sub-menu>
+        </template>
       </el-menu>
     </el-aside>
 
@@ -21,7 +42,8 @@
         <div class="crumb">
           <span class="sys">幼儿园 / 托育机构管理系统</span>
           <el-breadcrumb separator="/">
-            <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item :to="{ path: homePath }">首页</el-breadcrumb-item>
+            <el-breadcrumb-item v-if="currentGroup">{{ currentGroup }}</el-breadcrumb-item>
             <el-breadcrumb-item>{{ currentTitle }}</el-breadcrumb-item>
           </el-breadcrumb>
         </div>
@@ -34,7 +56,8 @@
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+              <el-dropdown-item disabled>{{ user.username }}</el-dropdown-item>
+              <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -48,59 +71,122 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { authApi } from '@/api'
+import { homeOf } from '@/router'
 
 const route = useRoute()
 const router = useRouter()
+const menuRef = ref()
 
 const user = JSON.parse(localStorage.getItem('kids_user') || '{}')
+const ADMIN = 'admin'
+const TEACHER = 'teacher'
+const PARENT = 'parent'
 
-const menus = [
+// 一级菜单 + 二级菜单；每个叶子声明可见角色，渲染时按当前角色过滤（与后端 @RequireRole 一致）
+const allMenus = [
   {
+    key: 'home',
+    title: '首页',
+    icon: 'HomeFilled',
+    children: [
+      { path: '/dashboard', title: '首页看板', icon: 'DataLine', roles: [ADMIN, TEACHER] },
+      { path: '/my-child', title: '我的孩子', icon: 'User', roles: [PARENT] }
+    ]
+  },
+  {
+    key: 'base',
     title: '基础档案',
-    items: [
-      { path: '/dashboard', title: '首页看板', icon: 'DataLine' },
-      { path: '/child', title: '幼儿档案', icon: 'User' },
-      { path: '/clazz', title: '班级管理', icon: 'School' },
-      { path: '/attendance', title: '考勤管理', icon: 'Calendar' },
-      { path: '/teacher', title: '教职工管理', icon: 'Avatar' }
+    icon: 'FolderOpened',
+    children: [
+      { path: '/child', title: '幼儿档案', icon: 'User', roles: [ADMIN, TEACHER] },
+      { path: '/clazz', title: '班级管理', icon: 'School', roles: [ADMIN, TEACHER] },
+      { path: '/teacher', title: '教职工管理', icon: 'Avatar', roles: [ADMIN, TEACHER] }
     ]
   },
   {
+    key: 'nursing',
     title: '保教业务',
-    items: [{ path: '/course', title: '课程活动', icon: 'Notebook' }]
-  },
-  {
-    title: '膳食与收费',
-    items: [
-      { path: '/menu', title: '每周食谱', icon: 'Bowl' },
-      { path: '/food', title: '食材库存', icon: 'Box' },
-      { path: '/fee', title: '收费管理', icon: 'Money' }
+    icon: 'Reading',
+    children: [
+      { path: '/attendance', title: '考勤管理', icon: 'Calendar', roles: [ADMIN, TEACHER] },
+      { path: '/course', title: '课程活动', icon: 'Notebook', roles: [ADMIN, TEACHER] },
+      { path: '/menu', title: '每周食谱', icon: 'Bowl', roles: [ADMIN, TEACHER, PARENT] },
+      { path: '/food', title: '食材库存', icon: 'Box', roles: [ADMIN, TEACHER] }
     ]
   },
   {
+    key: 'contact',
     title: '家园沟通',
-    items: [
-      { path: '/leave', title: '请假审批', icon: 'DocumentChecked' },
-      { path: '/notice', title: '通知公告', icon: 'Bell' }
+    icon: 'ChatDotRound',
+    children: [
+      { path: '/leave', title: '请假审批', icon: 'DocumentChecked', roles: [ADMIN, TEACHER] },
+      { path: '/notice', title: '通知公告', icon: 'Bell', roles: [ADMIN, TEACHER, PARENT] }
     ]
   },
   {
-    title: '统计与系统',
-    items: [
-      { path: '/report', title: '统计报表', icon: 'PieChart' },
-      { path: '/dict', title: '数据字典', icon: 'Collection' },
-      { path: '/system', title: '系统设置与日志', icon: 'Setting' }
+    key: 'finance',
+    title: '财务与统计',
+    icon: 'Coin',
+    children: [
+      { path: '/fee', title: '收费管理', icon: 'Money', roles: [ADMIN] },
+      { path: '/report', title: '统计报表', icon: 'PieChart', roles: [ADMIN] }
+    ]
+  },
+  {
+    key: 'system',
+    title: '系统管理',
+    icon: 'Setting',
+    children: [
+      { path: '/dict', title: '数据字典', icon: 'Collection', roles: [ADMIN] },
+      { path: '/system', title: '系统设置与日志', icon: 'Setting', roles: [ADMIN] }
     ]
   }
 ]
 
+// 按角色过滤；过滤后只剩一个子项的组，直接摊平为一级菜单
+const menus = computed(() =>
+  allMenus
+    .map((g) => {
+      const children = g.children.filter((c) => c.roles.includes(user.role))
+      if (children.length === 0) return null
+      if (children.length === 1) {
+        const only = children[0]
+        return { key: only.path, path: only.path, title: only.title, icon: only.icon }
+      }
+      return { key: g.key, title: g.title, icon: g.icon, children }
+    })
+    .filter(Boolean)
+)
+
 const activePath = computed(() => route.path)
 const currentTitle = computed(() => route.meta.title || '')
+
+// 当前页面所属的一级菜单（面包屑用）
+const currentGroup = computed(() => {
+  const hit = menus.value.find((m) => m.children && m.children.some((c) => c.path === route.path))
+  return hit ? hit.title : ''
+})
+
+// 只展开当前页面所属的一级菜单，切换路由时保持同步
+const openedKeys = computed(() => {
+  const hit = menus.value.find((m) => m.children && m.children.some((c) => c.path === route.path))
+  return hit ? [hit.key] : []
+})
+
+watch(
+  () => route.path,
+  () => {
+    const key = openedKeys.value[0]
+    if (key && typeof menuRef.value?.open === 'function') menuRef.value.open(key)
+  }
+)
+
+const homePath = computed(() => homeOf(user.role))
 const shortName = computed(() => (user.realName || user.username || '?').slice(-2))
 const roleText = computed(
   () => ({ admin: '园长', teacher: '教师', parent: '家长' })[user.role] || '用户'
@@ -133,6 +219,8 @@ function handleCommand(cmd) {
 .aside {
   background: #1f2d3d;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .logo {
@@ -146,6 +234,7 @@ function handleCommand(cmd) {
   font-weight: 600;
   letter-spacing: 1px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 .logo .dot {
@@ -154,12 +243,52 @@ function handleCommand(cmd) {
 
 .menu {
   border-right: none;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.menu :deep(.el-menu-item-group__title) {
-  color: #6b7b8d;
-  font-size: 12px;
-  padding-left: 18px !important;
+/* 一级菜单标题 */
+.menu :deep(.el-sub-menu__title) {
+  height: 50px;
+  line-height: 50px;
+  font-size: 14px;
+}
+
+.menu :deep(.el-sub-menu__title:hover) {
+  background-color: #182430;
+}
+
+/* 二级菜单项：缩进 + 略深背景，层级一眼可辨 */
+.menu :deep(.el-sub-menu .el-menu-item) {
+  height: 44px;
+  line-height: 44px;
+  min-width: 0;
+  padding-left: 48px !important;
+  font-size: 13px;
+  background-color: #182430;
+}
+
+.menu :deep(.el-sub-menu .el-menu-item:hover) {
+  background-color: #141f2a;
+}
+
+.menu :deep(.el-sub-menu .el-menu-item.is-active) {
+  background-color: #10171f;
+  border-right: 3px solid #ffd04b;
+}
+
+/* 无子项的一级菜单 */
+.menu > :deep(.el-menu-item) {
+  height: 50px;
+  line-height: 50px;
+  font-size: 14px;
+}
+
+.menu :deep(.el-menu-item .el-icon),
+.menu :deep(.el-sub-menu__title .el-icon) {
+  margin-right: 8px;
+  width: 18px;
 }
 
 .header {

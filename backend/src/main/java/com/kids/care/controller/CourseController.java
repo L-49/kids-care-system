@@ -1,7 +1,9 @@
 package com.kids.care.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.kids.care.common.RequireRole;
 import com.kids.care.common.Result;
+import com.kids.care.common.Roles;
 import com.kids.care.entity.Course;
 import com.kids.care.service.ICourseService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/course")
 @RequiredArgsConstructor
+@RequireRole({Roles.ADMIN, Roles.TEACHER})
 public class CourseController {
 
     private final ICourseService courseService;
@@ -22,11 +25,11 @@ public class CourseController {
     /** 分页查询 */
     @GetMapping("/page")
     public Result<List<Course>> page(@RequestParam(defaultValue = "1") int pageNum,
-                                         @RequestParam(defaultValue = "10") int pageSize,
-                                         @RequestParam(required = false) String keyword,
-                                         @RequestParam(required = false) Long clazzId,
-                                         @RequestParam(required = false) Long teacherId,
-                                         @RequestParam(required = false) String courseDate) {
+                                     @RequestParam(defaultValue = "10") int pageSize,
+                                     @RequestParam(required = false) String keyword,
+                                     @RequestParam(required = false) Long clazzId,
+                                     @RequestParam(required = false) Long teacherId,
+                                     @RequestParam(required = false) String courseDate) {
         IPage<Course> page = courseService.pageQuery(pageNum, pageSize, keyword, clazzId, teacherId, courseDate);
         return Result.page(page.getRecords(), page.getTotal());
     }

@@ -43,12 +43,21 @@ public interface StatMapper {
             + "where deleted = 0 and att_date = curdate() group by status")
     List<Map<String, Object>> attendanceToday();
 
-    /** 近 7 天出勤趋势 */
+    /** 近 7 天出勤趋势（幼儿园周末不开园，仅统计周一至周五） */
     @Select("select date_format(att_date, '%m-%d') as day, "
-            + "sum(case when status = '出勤' then 1 else 0 end) as present, count(*) as total "
+            + "sum(case when status = #{present} then 1 else 0 end) as present, count(*) as total "
             + "from attendance where deleted = 0 and att_date >= date_sub(curdate(), interval 6 day) "
+            + "and dayofweek(att_date) not in (1, 7) "
             + "group by att_date order by att_date")
-    List<Map<String, Object>> attendanceTrend();
+    List<Map<String, Object>> attendanceTrend(@Param("present") String present);
+
+    /** 单个幼儿近 7 天每个工作日的考勤状态（家长端） */
+    @Select("select date_format(att_date, '%m-%d') as day, status, check_in_time as checkInTime "
+            + "from attendance where deleted = 0 and child_id = #{childId} "
+            + "and att_date >= date_sub(curdate(), interval 6 day) "
+            + "and dayofweek(att_date) not in (1, 7) "
+            + "order by att_date")
+    List<Map<String, Object>> attendanceDaysOfChild(@Param("childId") Long childId);
 
     /** 各班在园人数分布 */
     @Select("select c.name as name, count(ch.id) as value from clazz c "
@@ -69,10 +78,10 @@ public interface StatMapper {
     List<Map<String, Object>> feeTrend();
 
     /** 各班出勤汇总 */
-    @Select("select c.name as clazzName, sum(case when a.status = '出勤' then 1 else 0 end) as present, "
+    @Select("select c.name as clazzName, sum(case when a.status = #{present} then 1 else 0 end) as present, "
             + "count(a.id) as total from attendance a join clazz c on c.id = a.clazz_id "
             + "where a.deleted = 0 group by c.id, c.name order by c.id")
-    List<Map<String, Object>> attendanceByClazz();
+    List<Map<String, Object>> attendanceByClazz(@Param("present") String present);
 
     /** 今日考勤记录总数 */
     @Select("select count(*) from attendance where deleted = 0 and att_date = curdate()")

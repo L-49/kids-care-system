@@ -12,7 +12,12 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class TokenStore {
 
-    public record LoginUser(Long userId, String username, String realName, String role) {}
+    /**
+     * 登录人信息
+     *
+     * @param childId 家长账号绑定的幼儿ID，非家长角色为 null
+     */
+    public record LoginUser(Long userId, String username, String realName, String role, Long childId) {}
 
     private final Map<String, LoginUser> tokens = new ConcurrentHashMap<>();
 

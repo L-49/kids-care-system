@@ -8,6 +8,21 @@
       </div>
 
       <el-form ref="formRef" :model="form" :rules="rules" size="large" @keyup.enter="handleLogin">
+        <el-form-item prop="role">
+          <div class="role-pick">
+            <div
+              v-for="r in roleOptions"
+              :key="r.value"
+              class="role-item"
+              :class="{ active: form.role === r.value }"
+              @click="pickRole(r)"
+            >
+              <el-icon :size="20"><component :is="r.icon" /></el-icon>
+              <span>{{ r.label }}</span>
+            </div>
+          </div>
+          <div class="role-hint">点击上方身份，账号密码自动填入</div>
+        </el-form-item>
         <el-form-item prop="username">
           <el-input v-model="form.username" placeholder="请输入账号" :prefix-icon="User" clearable />
         </el-form-item>
@@ -24,13 +39,6 @@
           登 录
         </el-button>
       </el-form>
-
-      <div class="tips">
-        <span>演示账号：</span>
-        <el-tag v-for="t in accounts" :key="t.username" class="tag" size="small" @click="fill(t)">
-          {{ t.label }}：{{ t.username }} / 123456
-        </el-tag>
-      </div>
     </div>
   </div>
 </template>
@@ -39,29 +47,38 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Lock, User } from '@element-plus/icons-vue'
+import { Avatar, Lock, OfficeBuilding, User, UserFilled } from '@element-plus/icons-vue'
 import { authApi } from '@/api'
+import { homeOf } from '@/router'
 
 const router = useRouter()
 const formRef = ref()
 const loading = ref(false)
 
-const form = reactive({ username: 'admin', password: '123456' })
-
-const rules = {
-  username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
-}
-
-const accounts = [
-  { label: '园长', username: 'admin' },
-  { label: '教师', username: 'teacher' },
-  { label: '家长', username: 'parent' }
+// 每个身份绑定一套演示账号，点击身份卡片即自动填充，无需手工输入
+const roleOptions = [
+  { value: 'admin', label: '园长', icon: OfficeBuilding, username: 'admin', password: '123456' },
+  { value: 'teacher', label: '教师', icon: Avatar, username: 'teacher', password: '123456' },
+  { value: 'parent', label: '家长', icon: UserFilled, username: 'parent', password: '123456' }
 ]
 
-function fill(t) {
-  form.username = t.username
-  form.password = '123456'
+const form = reactive({
+  role: roleOptions[0].value,
+  username: roleOptions[0].username,
+  password: roleOptions[0].password
+})
+
+function pickRole(r) {
+  form.role = r.value
+  form.username = r.username
+  form.password = r.password
+  formRef.value?.clearValidate(['username', 'password'])
+}
+
+const rules = {
+  role: [{ required: true, message: '请选择登录身份', trigger: 'change' }],
+  username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 
 function handleLogin() {
@@ -69,11 +86,16 @@ function handleLogin() {
     if (!valid) return
     loading.value = true
     try {
-      const res = await authApi.login({ username: form.username, password: form.password })
+      const res = await authApi.login({
+        username: form.username,
+        password: form.password,
+        role: form.role
+      })
+      const user = res.data.user || {}
       localStorage.setItem('kids_token', res.data.token)
-      localStorage.setItem('kids_user', JSON.stringify(res.data.user))
-      ElMessage.success('登录成功，欢迎回来')
-      router.push('/dashboard')
+      localStorage.setItem('kids_user', JSON.stringify(user))
+      ElMessage.success(`登录成功，欢迎 ${user.realName || user.username}`)
+      router.push(homeOf(user.role))
     } finally {
       loading.value = false
     }
@@ -91,8 +113,8 @@ function handleLogin() {
 }
 
 .login-card {
-  width: 420px;
-  padding: 34px 36px 26px;
+  width: 440px;
+  padding: 34px 36px 30px;
   background: #fff;
   border-radius: 14px;
   box-shadow: 0 12px 34px rgba(31, 45, 61, 0.16);
@@ -119,21 +141,51 @@ function handleLogin() {
   font-size: 13px;
 }
 
+.role-pick {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+
+.role-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  color: #606266;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.role-item:hover {
+  border-color: #a0cfff;
+  color: #409eff;
+}
+
+.role-item.active {
+  border-color: #409eff;
+  color: #409eff;
+  background: #ecf5ff;
+  font-weight: 600;
+}
+
+.role-hint {
+  width: 100%;
+  margin-top: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: #a8abb2;
+  line-height: 1.4;
+}
+
 .btn {
   width: 100%;
   margin-top: 4px;
-}
-
-.tips {
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px dashed #e4e7ed;
-  font-size: 12px;
-  color: #909399;
-}
-
-.tag {
-  margin: 4px 6px 0 0;
-  cursor: pointer;
 }
 </style>

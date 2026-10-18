@@ -1,7 +1,9 @@
 package com.kids.care.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.kids.care.common.RequireRole;
 import com.kids.care.common.Result;
+import com.kids.care.common.Roles;
 import com.kids.care.entity.FoodStock;
 import com.kids.care.entity.StockRecord;
 import com.kids.care.service.IFoodStockService;
@@ -19,6 +21,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/food")
 @RequiredArgsConstructor
+@RequireRole({Roles.ADMIN, Roles.TEACHER})
 public class FoodStockController {
 
     private final IFoodStockService foodStockService;

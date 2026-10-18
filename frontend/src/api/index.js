@@ -41,6 +41,9 @@ export const foodOverview = () => request.get('/food/overview')
 export const stockChange = (id, data) => request.post(`/food/${id}/stock`, data)
 export const stockRecords = (params) => request.get('/food/record/page', { params })
 
+// 家长端：我的孩子（档案 + 今日考勤 + 近 7 天趋势 + 账单 + 请假）
+export const myChildApi = () => request.get('/child/mine')
+
 export const dictApi = crudApi('/dict')
 // 按类型取字典项（下拉框用）
 dictApi.type = (dictType) => request.get(`/dict/type/${dictType}`)

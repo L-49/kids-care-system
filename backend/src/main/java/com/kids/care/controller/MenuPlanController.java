@@ -1,7 +1,9 @@
 package com.kids.care.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.kids.care.common.RequireRole;
 import com.kids.care.common.Result;
+import com.kids.care.common.Roles;
 import com.kids.care.entity.MenuPlan;
 import com.kids.care.service.IMenuPlanService;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/menu")
 @RequiredArgsConstructor
+@RequireRole({Roles.ADMIN, Roles.TEACHER, Roles.PARENT})
 public class MenuPlanController {
 
     private final IMenuPlanService menuPlanService;
@@ -44,6 +47,7 @@ public class MenuPlanController {
     }
 
     /** 一键复制上周食谱到本周，返回复制条数 */
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
     @PostMapping("/copy-last-week")
     public Result<Integer> copyLastWeek(@RequestParam String weekStart) {
         return Result.ok(menuPlanService.copyFromLastWeek(LocalDate.parse(weekStart)));
@@ -56,6 +60,7 @@ public class MenuPlanController {
     }
 
     /** 新增 */
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
     @PostMapping
     public Result<Void> add(@RequestBody MenuPlan entity) {
         menuPlanService.save(entity);
@@ -63,6 +68,7 @@ public class MenuPlanController {
     }
 
     /** 修改 */
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
     @PutMapping
     public Result<Void> edit(@RequestBody MenuPlan entity) {
         menuPlanService.updateById(entity);
@@ -70,6 +76,7 @@ public class MenuPlanController {
     }
 
     /** 删除（支持批量） */
+    @RequireRole({Roles.ADMIN, Roles.TEACHER})
     @DeleteMapping("/{ids}")
     public Result<Void> remove(@PathVariable List<Long> ids) {
         menuPlanService.removeByIds(ids);

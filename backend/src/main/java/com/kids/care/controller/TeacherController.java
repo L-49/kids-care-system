@@ -1,7 +1,9 @@
 package com.kids.care.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.kids.care.common.RequireRole;
 import com.kids.care.common.Result;
+import com.kids.care.common.Roles;
 import com.kids.care.entity.Teacher;
 import com.kids.care.service.ITeacherService;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/teacher")
 @RequiredArgsConstructor
+@RequireRole({Roles.ADMIN, Roles.TEACHER})
 public class TeacherController {
 
     private final ITeacherService teacherService;
@@ -43,6 +46,7 @@ public class TeacherController {
     }
 
     /** 新增（仅园长） */
+    @RequireRole({Roles.ADMIN})
     @PostMapping
     public Result<Void> add(@RequestBody Teacher entity) {
         teacherService.save(entity);
@@ -50,6 +54,7 @@ public class TeacherController {
     }
 
     /** 修改（仅园长） */
+    @RequireRole({Roles.ADMIN})
     @PutMapping
     public Result<Void> edit(@RequestBody Teacher entity) {
         teacherService.updateById(entity);
@@ -57,6 +62,7 @@ public class TeacherController {
     }
 
     /** 删除（仅园长） */
+    @RequireRole({Roles.ADMIN})
     @DeleteMapping("/{ids}")
     public Result<Void> remove(@PathVariable List<Long> ids) {
         teacherService.removeByIds(ids);

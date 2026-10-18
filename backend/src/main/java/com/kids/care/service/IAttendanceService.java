@@ -11,8 +11,9 @@ import java.util.List;
  */
 public interface IAttendanceService extends IService<Attendance> {
 
-    /** 分页查询 */
-    IPage<Attendance> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId, String status, String attDate);
+    /** 分页查询（childId 非空时只查该幼儿，用于家长数据隔离） */
+    IPage<Attendance> pageQuery(int pageNum, int pageSize, String keyword, Long clazzId,
+                                String status, String attDate, Long childId);
 
     /** 全部列表（用于下拉框） */
     List<Attendance> listAll();
