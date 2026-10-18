@@ -30,10 +30,14 @@ public class Result<T> {
         return r;
     }
 
-    public static <T> Result<T> fail(String msg) {
+    public static <T> Result<T> fail(int code, String msg) {
         Result<T> r = new Result<>();
-        r.code = 500;
+        r.code = code;
         r.msg = msg;
         return r;
+    }
+
+    public static <T> Result<T> fail(String msg) {
+        return fail(500, msg);
     }
 }

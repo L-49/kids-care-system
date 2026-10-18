@@ -42,6 +42,9 @@ public class SysLog {
     /** HTTP 状态码 */
     private Integer status;
 
+    /** 失败原因（成功时为空） */
+    private String errorMsg;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 }

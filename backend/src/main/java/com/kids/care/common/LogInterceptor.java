@@ -64,6 +64,13 @@ public class LogInterceptor implements HandlerInterceptor {
             log.setIp(request.getRemoteAddr());
             log.setCostTime(cost);
             log.setStatus(response.getStatus());
+            // 失败原因：优先取全局异常处理器写入的 logError，其次取拦截器异常信息
+            Object error = request.getAttribute("logError");
+            if (error == null && ex != null) {
+                error = ex.getMessage();
+            }
+            String errorMsg = error == null ? "" : String.valueOf(error);
+            log.setErrorMsg(errorMsg.length() > 280 ? errorMsg.substring(0, 280) : errorMsg);
             log.setCreateTime(LocalDateTime.now());
             sysLogMapper.insert(log);
         } catch (Exception ignored) {
@@ -72,6 +79,11 @@ public class LogInterceptor implements HandlerInterceptor {
     }
 
     private String resolveUsername(HttpServletRequest request) {
+        // 登录接口还没有令牌，由 AuthController 写入尝试登录的账号
+        Object attempted = request.getAttribute("logUsername");
+        if (attempted != null) {
+            return String.valueOf(attempted);
+        }
         String token = request.getHeader("Authorization");
         if (token != null && token.startsWith("Bearer ")) {
             token = token.substring(7);
@@ -99,6 +111,9 @@ public class LogInterceptor implements HandlerInterceptor {
         }
         if (uri.contains("/approve")) {
             return "审批处理（" + module + "）";
+        }
+        if (uri.contains("/transfer")) {
+            return "调班（" + module + "）";
         }
         if (uri.contains("/backup")) {
             return "数据备份";
