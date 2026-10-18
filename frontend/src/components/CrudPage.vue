@@ -89,7 +89,7 @@
         </template>
       </el-table-column>
       <el-table-column
-        v-if="!config.readonly"
+        v-if="!config.readonly || (config.rowActions || []).length > 0"
         label="操作"
         :width="actionWidth"
         fixed="right"
@@ -105,8 +105,8 @@
           >
             {{ a.label }}
           </el-button>
-          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
-          <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+          <el-button v-if="!config.readonly" link type="primary" @click="openEdit(row)">编辑</el-button>
+          <el-button v-if="!config.readonly" link type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
