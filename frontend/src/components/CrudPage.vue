@@ -140,6 +140,7 @@
                 v-if="!f.type || f.type === 'input'"
                 v-model="form[f.field]"
                 :placeholder="f.placeholder || '请输入' + f.label"
+                :disabled="isDisabled(f)"
                 clearable
               />
               <el-input
@@ -147,12 +148,14 @@
                 v-model="form[f.field]"
                 type="textarea"
                 :rows="3"
+                :disabled="isDisabled(f)"
                 :placeholder="f.placeholder || '请输入' + f.label"
               />
               <el-select
                 v-else-if="f.type === 'select'"
                 v-model="form[f.field]"
-                :placeholder="'请选择' + f.label"
+                :placeholder="f.placeholder || '请选择' + f.label"
+                :disabled="isDisabled(f)"
                 clearable
                 style="width: 100%"
               >
@@ -169,6 +172,7 @@
                 :min="f.min ?? 0"
                 :max="f.max ?? 999999"
                 :precision="f.precision ?? 0"
+                :disabled="isDisabled(f)"
                 style="width: 100%"
               />
               <el-date-picker
@@ -177,6 +181,8 @@
                 type="date"
                 value-format="YYYY-MM-DD"
                 placeholder="选择日期"
+                :disabled="isDisabled(f)"
+                :disabled-date="f.disabledFuture ? disableFuture : undefined"
                 style="width: 100%"
               />
               <el-date-picker
@@ -185,6 +191,7 @@
                 type="month"
                 value-format="YYYY-MM"
                 placeholder="选择月份"
+                :disabled="isDisabled(f)"
                 style="width: 100%"
               />
               <el-date-picker
@@ -193,13 +200,15 @@
                 type="datetime"
                 value-format="YYYY-MM-DD HH:mm:ss"
                 placeholder="选择日期时间"
+                :disabled="isDisabled(f)"
                 style="width: 100%"
               />
-              <el-radio-group v-else-if="f.type === 'radio'" v-model="form[f.field]">
+              <el-radio-group v-else-if="f.type === 'radio'" v-model="form[f.field]" :disabled="isDisabled(f)">
                 <el-radio v-for="o in resolveOptions(f.options)" :key="o.value" :value="o.value">
                   {{ o.label }}
                 </el-radio>
               </el-radio-group>
+              <div v-if="f.help" class="field-help">{{ f.help }}</div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -236,12 +245,40 @@ const search = reactive({})
 const rules = computed(() => {
   const r = {}
   ;(props.config.fields || []).forEach((f) => {
+    const list = []
     if (f.required) {
-      r[f.field] = [{ required: true, message: '请填写' + f.label, trigger: 'blur' }]
+      list.push({
+        required: true,
+        message: '请填写' + f.label,
+        // 日期/下拉在 change 时就要给提示，blur 对它们不触发
+        trigger: f.type && f.type !== 'input' && f.type !== 'textarea' ? 'change' : 'blur'
+      })
+    }
+    if (typeof f.validator === 'function') {
+      // 跨字段校验：把当前表单一起传进去，页面里可以比较「出生日期 vs 入园日期」
+      list.push({
+        validator: (rule, value, callback) => f.validator(value, form, callback),
+        trigger: 'change'
+      })
+    }
+    if (list.length) {
+      r[f.field] = list
     }
   })
   return r
 })
+
+/** 字段是否禁用：支持布尔值，也支持函数（依据当前表单动态判断） */
+function isDisabled(f) {
+  return typeof f.disabled === 'function' ? !!f.disabled(form) : !!f.disabled
+}
+
+/** 日期选择器禁选未来日期（今天仍可选） */
+function disableFuture(date) {
+  const endOfToday = new Date()
+  endOfToday.setHours(23, 59, 59, 999)
+  return date.getTime() > endOfToday.getTime()
+}
 
 const actionWidth = computed(() => {
   const n = (props.config.rowActions || []).length + 2
@@ -404,5 +441,13 @@ defineExpose({ load, reload: load, getQuery: buildParams })
 .money {
   color: #f56c6c;
   font-weight: 600;
+}
+
+.field-help {
+  width: 100%;
+  margin-top: 2px;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.4;
 }
 </style>

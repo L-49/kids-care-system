@@ -14,7 +14,9 @@ import java.util.Map;
 @Mapper
 public interface StatMapper {
 
-    @Select("select count(*) from child where deleted = 0 and status = 1")
+    /** 在园幼儿数：按入园日期实时判定（入园日期晚于今天视为预约、不算在园） */
+    @Select("select count(*) from child where deleted = 0 "
+            + "and (case when enroll_date is not null then (case when enroll_date > curdate() then 0 else 1 end) else status end) = 1")
     Long countChild();
 
     @Select("select count(*) from teacher where deleted = 0 and status = 1")
@@ -59,9 +61,10 @@ public interface StatMapper {
             + "order by att_date")
     List<Map<String, Object>> attendanceDaysOfChild(@Param("childId") Long childId);
 
-    /** 各班在园人数分布 */
+    /** 各班在园人数分布（与在园幼儿数同口径，按入园日期实时判定） */
     @Select("select c.name as name, count(ch.id) as value from clazz c "
-            + "left join child ch on ch.clazz_id = c.id and ch.deleted = 0 and ch.status = 1 "
+            + "left join child ch on ch.clazz_id = c.id and ch.deleted = 0 "
+            + "and (case when ch.enroll_date is not null then (case when ch.enroll_date > curdate() then 0 else 1 end) else ch.status end) = 1 "
             + "where c.deleted = 0 group by c.id, c.name order by c.id")
     List<Map<String, Object>> clazzDistribution();
 

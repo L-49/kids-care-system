@@ -138,6 +138,7 @@ public class ClazzServiceImpl extends ServiceImpl<ClazzMapper, Clazz> implements
     private long childCountOf(Long clazzId) {
         return childMapper.selectCount(new LambdaQueryWrapper<Child>()
                 .eq(Child::getClazzId, clazzId)
-                .eq(Child::getStatus, 1));
+                // 与幼儿列表同口径：在园按入园日期实时判定，预约入园的不占名额
+                .apply("(case when enroll_date is not null then (case when enroll_date > curdate() then 0 else 1 end) else status end) = 1"));
     }
 }

@@ -37,6 +37,7 @@ import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -74,6 +75,7 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
             throw new BizException("未找到绑定的幼儿档案，请联系幼儿园核实");
         }
         fillClazzName(List.of(child));
+        fillDerivedStatus(List.of(child));
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("child", child);
@@ -112,6 +114,7 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
                 buildWrapper(keyword, clazzId, status, incompleteOnly));
         fillClazzName(page.getRecords());
         fillCompleteness(page.getRecords());
+        fillDerivedStatus(page.getRecords());
         return page;
     }
 
@@ -133,7 +136,8 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
             qw.eq(Child::getClazzId, clazzId);
         }
         if (status != null) {
-            qw.eq(Child::getStatus, status);
+            // 按入园日期实时判定，而不是直接比 status 字段：预约入园的幼儿不该被算进「在园」
+            qw.apply(STATUS_EXPR + " = {0}", status);
         }
         if (Boolean.TRUE.equals(incompleteOnly)) {
             // 用 SQL 侧算完整度，保证分页 total 与筛选结果一致（在 Java 里过滤会导致条数错乱）
@@ -146,7 +150,7 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
     @Override
     public List<Child> listAll() {
         List<Child> list = list(new LambdaQueryWrapper<Child>()
-                .eq(Child::getStatus, 1).orderByAsc(Child::getClazzId).orderByAsc(Child::getId));
+                .apply(STATUS_EXPR + " = 1").orderByAsc(Child::getClazzId).orderByAsc(Child::getId));
         fillClazzName(list);
         return list;
     }
@@ -154,7 +158,7 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
     @Override
     public List<Child> listAllergy() {
         List<Child> list = list(new LambdaQueryWrapper<Child>()
-                .eq(Child::getStatus, 1)
+                .apply(STATUS_EXPR + " = 1")
                 .isNotNull(Child::getAllergy)
                 .ne(Child::getAllergy, "")
                 .orderByAsc(Child::getClazzId));
@@ -190,9 +194,9 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
     @Transactional(rollbackFor = Exception.class)
     public void saveChild(Child entity) {
         normalize(entity);
-        if (entity.getStatus() == null) {
-            entity.setStatus(1);
-        }
+        validateDateRules(entity);
+        // 在园状态不接受入参指定，一律由入园日期判定，避免前端传什么就存什么
+        entity.setStatus(resolveStatus(entity.getEnrollDate(), null));
         save(entity);
         changeLogMapper.insert(wholeLog(entity, ChildChangeLog.TYPE_CREATE, "创建档案", null));
     }
@@ -208,6 +212,22 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
             throw new BizException("该幼儿档案不存在或已删除");
         }
         normalize(entity);
+        // 局部更新：日期没传就沿用库里的值，否则「只改家长电话」也会被日期必填规则拦住
+        if (entity.getBirthday() == null) {
+            entity.setBirthday(old.getBirthday());
+        }
+        if (entity.getEnrollDate() == null) {
+            entity.setEnrollDate(old.getEnrollDate());
+        }
+        // 校验用合并后的完整视图，留痕仍比对合并后的值与旧值，避免把「未传」误记成「清空」
+        // 存量数据不追溯：日期没动就不重算年龄（老档案可能按旧口径录入，一律拒绝会连改电话都改不了）；
+        // 但只要动了任一日期，就必须满足全部规则。
+        boolean datesChanged = !Objects.equals(old.getBirthday(), entity.getBirthday())
+                || !Objects.equals(old.getEnrollDate(), entity.getEnrollDate());
+        if (datesChanged) {
+            validateDateRules(entity);
+        }
+        entity.setStatus(resolveStatus(entity.getEnrollDate(), old.getStatus()));
         updateById(entity);
         // 字段级差异留痕：先拿旧值再对比，updateById 是直接覆盖，事后拿不到旧值
         List<ChildChangeLog> logs = diff(old, entity, UserContext.displayName());
@@ -221,7 +241,8 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
         if (child == null) {
             throw new BizException("幼儿不存在或已删除");
         }
-        if (child.getStatus() == null || child.getStatus() != 1) {
+        // 状态按入园日期实时判定（库里的 status 可能还是预约时写入的旧值）
+        if (resolveStatus(child.getEnrollDate(), child.getStatus()) != 1) {
             throw new BizException("幼儿【" + child.getName() + "】已离园，不能调班");
         }
         if (targetClazzId == null) {
@@ -236,7 +257,7 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
         }
         long current = count(new LambdaQueryWrapper<Child>()
                 .eq(Child::getClazzId, targetClazzId)
-                .eq(Child::getStatus, 1));
+                .apply(STATUS_EXPR + " = 1"));
         if (target.getCapacity() != null && current >= target.getCapacity()) {
             throw new BizException("班级【" + target.getName() + "】已满 " + target.getCapacity()
                     + " 人，无法调入，请先调整容量或选择其他班级");
@@ -269,6 +290,72 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
         }
         if (entity.getClazzId() != null && clazzMapper.selectById(entity.getClazzId()) == null) {
             throw new BizException("所选班级不存在，请重新选择");
+        }
+    }
+
+    // ==================== 日期与在园状态规则 ====================
+
+    /**
+     * 在园状态实时判定表达式（SQL 侧）。
+     *
+     * <p>入园日期晚于今天 → 离园（预约入园）；当天及以前 → 在园；没有入园日期时沿用存量 status。
+     * 列表筛选、下拉、容量统计都用这一份表达式，避免「页面显示在园、筛选却查不到」这类口径分裂。
+     * 用日期实时算的好处是预约到期自动转为在园，不需要定时任务去刷状态。
+     */
+    private static final String STATUS_EXPR =
+            "(case when enroll_date is not null then (case when enroll_date > curdate() then 0 else 1 end) else status end)";
+
+    /** Java 侧同一口径：入参为入园日期与存量状态，返回应落库/应展示的状态 */
+    private static Integer resolveStatus(LocalDate enrollDate, Integer stored) {
+        if (enrollDate == null) {
+            return stored == null ? 1 : stored;
+        }
+        return enrollDate.isAfter(LocalDate.now()) ? 0 : 1;
+    }
+
+    /**
+     * 日期与入园年龄校验，新增 / 修改 / Excel 导入三条路径共用。
+     *
+     * <p>规则来自业务评审：出生日期与入园日期必填；出生日期不能晚于今天；
+     * 出生日期必须早于入园日期；按入园日期计算须满 3 周岁且未满 7 周岁（即 3~6 岁）。
+     */
+    private static void validateDateRules(Child c) {
+        if (c.getBirthday() == null) {
+            throw new BizException("请填写出生日期");
+        }
+        if (c.getEnrollDate() == null) {
+            throw new BizException("请填写入园日期");
+        }
+        if (c.getBirthday().isAfter(LocalDate.now())) {
+            throw new BizException("出生日期不能晚于今天");
+        }
+        if (!c.getBirthday().isBefore(c.getEnrollDate())) {
+            throw new BizException("出生日期必须早于入园日期");
+        }
+        LocalDate enroll = c.getEnrollDate();
+        if (enroll.isBefore(c.getBirthday().plusYears(3))) {
+            throw new BizException("按入园日期计算年龄为 " + ageText(c.getBirthday(), enroll)
+                    + "，不符合 3~6 岁入园要求（须满 3 周岁）");
+        }
+        if (!enroll.isBefore(c.getBirthday().plusYears(7))) {
+            throw new BizException("按入园日期计算年龄为 " + ageText(c.getBirthday(), enroll)
+                    + "，不符合 3~6 岁入园要求（须未满 7 周岁）");
+        }
+    }
+
+    /** 年龄文案：3 岁 2 个月 / 4 岁 */
+    private static String ageText(LocalDate birthday, LocalDate enroll) {
+        Period p = Period.between(birthday, enroll);
+        return p.getMonths() > 0 ? p.getYears() + " 岁 " + p.getMonths() + " 个月" : p.getYears() + " 岁";
+    }
+
+    /** 列表 / 详情展示前把存量状态换成实时判定结果，避免预约到期的记录仍显示「离园」 */
+    private static void fillDerivedStatus(List<Child> list) {
+        if (list == null || list.isEmpty()) {
+            return;
+        }
+        for (Child c : list) {
+            c.setStatus(resolveStatus(c.getEnrollDate(), c.getStatus()));
         }
     }
 
@@ -420,7 +507,7 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
                 nz(c.getAddress()),
                 nz(c.getAllergy()),
                 dateText(c.getEnrollDate()),
-                statusText(c.getStatus()),
+                statusText(resolveStatus(c.getEnrollDate(), c.getStatus())),
                 ChildCompleteness.score(c) + "%",
                 missing.isEmpty() ? "已完整" : missing,
                 dateTimeText(c.getCreateTime()));
@@ -478,9 +565,6 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
         c.setGender(gender);
 
         c.setBirthday(parseDate(cell(row, 2), "出生日期"));
-        if (c.getBirthday() != null && c.getBirthday().isAfter(LocalDate.now())) {
-            throw new BizException("出生日期不能晚于今天");
-        }
 
         String clazzName = cell(row, 3);
         if (clazzName.isEmpty()) {
@@ -517,7 +601,9 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
         c.setAllergy(allergy.isEmpty() ? null : allergy);
 
         c.setEnrollDate(parseDate(cell(row, 8), "入园日期"));
-        c.setStatus(1);
+        // 导入与手工新增同一套日期规则，避免「页面填不进去、Excel 却导得进去」
+        validateDateRules(c);
+        c.setStatus(resolveStatus(c.getEnrollDate(), null));
         return c;
     }
 
@@ -595,6 +681,8 @@ public class ChildServiceImpl extends ServiceImpl<ChildMapper, Child> implements
         addDiff(logs, old, now, operator, "gender", "性别", old.getGender(), now.getGender());
         addDiff(logs, old, now, operator, "birthday", "出生日期",
                 str(old.getBirthday()), str(now.getBirthday()));
+        addDiff(logs, old, now, operator, "enrollDate", "入园日期",
+                str(old.getEnrollDate()), str(now.getEnrollDate()));
         if (!Objects.equals(old.getClazzId(), now.getClazzId())) {
             addDiff(logs, old, now, operator, "clazzId", "所在班级",
                     clazzName(old.getClazzId()), clazzName(now.getClazzId()));

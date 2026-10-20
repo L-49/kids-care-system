@@ -94,6 +94,54 @@ import {
 const crud = ref()
 const clazzList = ref([])
 
+// ==================== 日期与入园年龄校验（与后端 validateDateRules 同口径） ====================
+
+function todayStr() {
+  const d = new Date()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
+/** 入园时的月龄：满 36 个月且未满 84 个月即 3~6 岁 */
+function monthsBetween(birthday, date) {
+  const b = new Date(birthday)
+  const d = new Date(date)
+  let months = (d.getFullYear() - b.getFullYear()) * 12 + (d.getMonth() - b.getMonth())
+  if (d.getDate() < b.getDate()) months -= 1
+  return months
+}
+
+function ageText(birthday, date) {
+  const m = monthsBetween(birthday, date)
+  const years = Math.floor(m / 12)
+  const months = m % 12
+  return months > 0 ? `${years} 岁 ${months} 个月` : `${years} 岁`
+}
+
+function validateBirthday(value, form, callback) {
+  if (!value) return callback(new Error('请选择出生日期'))
+  if (value > todayStr()) return callback(new Error('出生日期不能晚于今天'))
+  if (form.enrollDate && value >= form.enrollDate) {
+    return callback(new Error('出生日期必须早于入园日期'))
+  }
+  callback()
+}
+
+function validateEnrollDate(value, form, callback) {
+  if (!value) return callback(new Error('请选择入园日期'))
+  if (!form.birthday) return callback()
+  if (value <= form.birthday) return callback(new Error('入园日期必须晚于出生日期'))
+  const months = monthsBetween(form.birthday, value)
+  if (months < 36) {
+    return callback(new Error(`按入园日期计算年龄为${ageText(form.birthday, value)}，不符合 3~6 岁入园要求（须满 3 周岁）`))
+  }
+  if (months >= 84) {
+    return callback(new Error(`按入园日期计算年龄为${ageText(form.birthday, value)}，不符合 3~6 岁入园要求（须未满 7 周岁）`))
+  }
+  callback()
+}
+
 // 变更留痕
 const historyVisible = ref(false)
 const historyList = ref([])
@@ -245,19 +293,36 @@ const config = {
         { label: '女', value: '女' }
       ]
     },
-    { field: 'birthday', label: '出生日期', type: 'date' },
+    {
+      field: 'birthday',
+      label: '出生日期',
+      type: 'date',
+      required: true,
+      disabledFuture: true,
+      validator: validateBirthday
+    },
     { field: 'clazzId', label: '所在班级', type: 'select', options: 'clazzList', required: true },
     { field: 'guardianName', label: '家长姓名' },
     { field: 'guardianPhone', label: '家长电话', placeholder: '11 位手机号，用于家长端登录' },
-    { field: 'enrollDate', label: '入园日期', type: 'date' },
+    {
+      field: 'enrollDate',
+      label: '入园日期',
+      type: 'date',
+      required: true,
+      validator: validateEnrollDate,
+      help: '可填未来日期表示预约入园；须满 3 周岁、未满 7 周岁'
+    },
     {
       field: 'status',
       label: '在园状态',
       type: 'select',
+      disabled: true,
+      placeholder: '保存后按入园日期自动判定',
       options: [
         { label: '在园', value: 1 },
         { label: '离园', value: 0 }
-      ]
+      ],
+      help: '不可手工指定：入园日期晚于今天为「离园」（预约），当天及以前为「在园」'
     },
     { field: 'address', label: '家庭住址', span: 24 },
     {
@@ -271,7 +336,7 @@ const config = {
   rowActions: [
     { label: '变更记录', type: 'primary', handler: (row) => openHistory(row) }
   ],
-  defaults: { gender: '男', status: 1 }
+  defaults: { gender: '男' }
 }
 
 onMounted(async () => {
