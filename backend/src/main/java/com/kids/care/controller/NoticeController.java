@@ -41,11 +41,11 @@ public class NoticeController {
         return Result.ok(noticeService.listAll());
     }
 
-    /** 详情 */
+    /** 详情（家长只能看到已发布且已到点的公告，其余按不存在处理） */
     @RequireRole({Roles.ADMIN, Roles.TEACHER, Roles.PARENT})
     @GetMapping("/{id}")
     public Result<Notice> info(@PathVariable Long id) {
-        return Result.ok(noticeService.getById(id));
+        return Result.ok(noticeService.visibleDetail(id));
     }
 
     /** 新增 */

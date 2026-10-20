@@ -17,6 +17,12 @@ public interface INoticeService extends IService<Notice> {
     /** 全部列表（用于下拉框）：只返回已发布且已到发布时间的公告 */
     List<Notice> listAll();
 
+    /**
+     * 详情（带可见性校验）。
+     * 家长只能看到「已发布 + 已到点 + 在可见范围内」的公告，其余按不存在处理；管理端原样返回。
+     */
+    Notice visibleDetail(Long id);
+
     /** 新增公告（按状态校验并补全发布时间） */
     void saveNotice(Notice entity);
 

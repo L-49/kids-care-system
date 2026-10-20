@@ -14,6 +14,8 @@ import { noticeApi, dictApi, publishNotice, revokeNotice, clazzApi } from '@/api
 
 const crud = ref()
 const user = JSON.parse(localStorage.getItem('kids_user') || '{}')
+// 家长只读：公告由园方发布，家长端只保留浏览能力（后端也按角色强制过滤草稿与定时未到点）
+const isParent = user.role === 'parent'
 
 // 类型选项来自数据字典 notice_type，新增类型只需在字典里加一项，不用改代码
 const typeOptions = ref([])
@@ -51,11 +53,16 @@ const searchStatusOptions = [
 const config = {
   title: '通知公告',
   nameField: 'title',
+  // 家长端只读：不显示新增/编辑/删除，行操作按角色置空
+  readonly: isParent,
   api: noticeApi,
+  // 家长端列表只有已发布公告，状态筛选无意义，直接不展示
   search: [
     { field: 'keyword', label: '标题', placeholder: '请输入标题关键字' },
     { field: 'type', label: '类型', type: 'select', options: 'typeOptions' },
-    { field: 'status', label: '状态', type: 'select', options: 'searchStatusOptions' }
+    ...(isParent
+      ? []
+      : [{ field: 'status', label: '状态', type: 'select', options: 'searchStatusOptions' }])
   ],
   columns: [
     { prop: 'title', label: '标题', minWidth: 200 },
@@ -76,7 +83,7 @@ const config = {
     { field: 'publishTime', label: '发布时间', type: 'datetime' },
     { field: 'content', label: '公告内容', type: 'textarea', span: 24 }
   ],
-  rowActions: [
+  rowActions: isParent ? [] : [
     {
       label: '立即发布',
       type: 'primary',

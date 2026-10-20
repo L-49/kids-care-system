@@ -65,13 +65,19 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
         if (StringUtils.hasText(type)) {
             qw.eq(Notice::getType, type);
         }
-        if (status != null) {
-            qw.eq(Notice::getStatus, status);
+        if (isParent()) {
+            // 家长端：状态与发布时间由服务端判定，忽略前端传入的 status。
+            // 否则传 status=0 就能把草稿翻出来，传 status=1 能看到定时未到点的公告。
+            applyPublicVisibility(qw);
         } else {
-            // 管理端默认不展示已撤回的公告，需要查看时显式传 status=3
-            qw.ne(Notice::getStatus, Notice.STATUS_REVOKED);
+            if (status != null) {
+                qw.eq(Notice::getStatus, status);
+            } else {
+                // 管理端默认不展示已撤回的公告，需要查看时显式传 status=3
+                qw.ne(Notice::getStatus, Notice.STATUS_REVOKED);
+            }
+            applyVisibility(qw);
         }
-        applyVisibility(qw);
         qw.orderByDesc(Notice::getPublishTime).orderByDesc(Notice::getId);
         IPage<Notice> page = page(new Page<>(pageNum, pageSize), qw);
         fillTargetLabel(page.getRecords());
@@ -84,14 +90,32 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
      */
     @Override
     public List<Notice> listAll() {
-        LambdaQueryWrapper<Notice> qw = new LambdaQueryWrapper<Notice>()
-                .eq(Notice::getStatus, Notice.STATUS_PUBLISHED)
-                .le(Notice::getPublishTime, LocalDateTime.now());
-        applyVisibility(qw);
+        LambdaQueryWrapper<Notice> qw = new LambdaQueryWrapper<>();
+        applyPublicVisibility(qw);
         qw.orderByDesc(Notice::getPublishTime).orderByDesc(Notice::getId).last("limit 20");
         List<Notice> list = list(qw);
         fillTargetLabel(list);
         return list;
+    }
+
+    @Override
+    public Notice visibleDetail(Long id) {
+        Notice notice = getById(id);
+        if (notice == null) {
+            throw new BizException("公告不存在或已删除");
+        }
+        if (!isParent()) {
+            return notice;
+        }
+        // 家长：草稿、定时未到点、超出可见范围一律按「不存在」处理，
+        // 不透露公告真实状态，避免通过遍历 id 提前看到未公开内容
+        boolean due = notice.getPublishTime() != null
+                && !notice.getPublishTime().isAfter(LocalDateTime.now());
+        if (notice.getStatus() == null || notice.getStatus() != Notice.STATUS_PUBLISHED
+                || !due || !inParentScope(notice)) {
+            throw new BizException("公告不存在或已下线");
+        }
+        return notice;
     }
 
     @Override
@@ -181,15 +205,31 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
 
     // ==================== 定向可见 ====================
 
+    private boolean isParent() {
+        return ROLE_PARENT.equals(UserContext.role());
+    }
+
     /**
-     * 按当前登录人的角色追加可见性条件。
+     * 对外可见口径（家长端专用）：已发布 + 发布时间已到 + 可见范围匹配。
      *
-     * <p>只有家长受限（全园 + 自己孩子所在班级）；园长与教师视为管理视角，不加限制。
+     * <p>状态与时间必须同时过滤，否则草稿和定时未到点的公告会提前露出。
+     * 管理端不能用这个口径——园长/教师需要看草稿与定时待发。
+     */
+    private void applyPublicVisibility(LambdaQueryWrapper<Notice> qw) {
+        qw.eq(Notice::getStatus, Notice.STATUS_PUBLISHED)
+                .le(Notice::getPublishTime, LocalDateTime.now());
+        applyVisibility(qw);
+    }
+
+    /**
+     * 只追加「可见范围」条件，状态与发布时间由调用方自行处理。
+     *
+     * <p>只有家长受限（全园 + 自己孩子所在班级）；园长与教师视为管理视角，不加范围限制。
      * 家长端还没有独立界面，所以这里对管理端列表也生效——方便演示：
      * 用 parent 账号登录就能直接看到「小班专属通知」不会出现在中班家长面前。
      */
     private void applyVisibility(LambdaQueryWrapper<Notice> qw) {
-        if (!ROLE_PARENT.equals(UserContext.role())) {
+        if (!isParent()) {
             return;
         }
         Set<Long> clazzIds = parentClazzIds();
@@ -200,6 +240,16 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
         qw.and(w -> w.eq(Notice::getTargetType, Notice.TARGET_ALL)
                 .or(o -> o.eq(Notice::getTargetType, Notice.TARGET_CLASS)
                         .in(Notice::getTargetId, clazzIds)));
+    }
+
+    /** 单条公告是否落在家长可见范围内（全园，或自己孩子所在班级） */
+    private boolean inParentScope(Notice notice) {
+        if (Notice.TARGET_ALL.equals(notice.getTargetType())) {
+            return true;
+        }
+        return Notice.TARGET_CLASS.equals(notice.getTargetType())
+                && notice.getTargetId() != null
+                && parentClazzIds().contains(notice.getTargetId());
     }
 
     /** 家长账号 → 手机号 → 其孩子所在班级（无绑定表，用电话关联） */
